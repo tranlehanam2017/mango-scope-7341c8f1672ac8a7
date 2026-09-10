@@ -17,6 +17,7 @@ const initial: LifeRecord[] = theme.seeds.map(([title, category, effort, impact]
 }));
 const store = new RecordStore(`life-board:${theme.id}:v1`, initial);
 let selectedCategory = "all";
+let searchQuery = "";
 
 const HTML_ENTITIES: Readonly<Record<string, string>> = {
   "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
@@ -40,8 +41,8 @@ root.innerHTML = `
     <button type="submit">Add to plan</button></form><div class="exchange"><button id="csv" class="ghost">Export CSV</button>
     <label class="file">Import JSON<input id="import" type="file" accept="application/json"></label>
     <button id="clear-all" class="ghost danger">Clear All</button></div></section>
-  <section class="panel plan-panel"><div class="panel-title"><h2>Priority plan</h2><select id="filter"><option value="all">All categories</option>
-    ${theme.categories.map((x) => `<option>${x}</option>`).join("")}</select></div><div id="plan"></div></section></main>
+  <section class="panel plan-panel"><div class="panel-title"><h2>Priority plan</h2><div class="filter-group"><input id="search" placeholder="Search records..."><select id="filter"><option value="all">All categories</option>
+    ${theme.categories.map((x) => `<option>${x}</option>`).join("")}</select></div></div><div id="plan"></div></section></main>
   <section class="panel week-panel"><div class="panel-title"><h2>Seven-day load</h2><label>Daily capacity
     <input id="capacity" type="number" min="15" max="480" step="15" value="90"></label></div><div id="week" class="week"></div></section>
 `;
@@ -69,6 +70,12 @@ form.addEventListener("submit", (event) => {
 document.querySelector<HTMLSelectElement>("#filter")!.addEventListener("change", (event) => {
   selectedCategory = (event.target as HTMLSelectElement).value; render(store.all());
 });
+
+document.querySelector<HTMLInputElement>("#search")!.addEventListener("input", (event) => {
+  searchQuery = (event.target as HTMLInputElement).value.toLowerCase();
+  render(store.all());
+});
+
 capacity.addEventListener("input", () => render(store.all()));
 document.querySelector("#seed-export")!.addEventListener("click", () => download("records.json", exportJson(store.all()), "application/json"));
 document.querySelector("#csv")!.addEventListener("click", () => download("records.csv", exportCsv(store.all()), "text/csv"));
@@ -87,7 +94,13 @@ function render(records: readonly LifeRecord[]): void {
     ["Open", summary.total - summary.completed], ["Due soon", summary.dueSoon],
     ["Overdue", summary.overdue], [theme.effortLabel, summary.effort],
   ].map(([label, value]) => `<article><span>${label}</span><strong>${value}</strong></article>`).join("");
-  const plan = buildPlan(records).filter((entry) => selectedCategory === "all" || entry.item.category === selectedCategory);
+  const plan = buildPlan(records).filter((entry) => {
+    const matchesCategory = selectedCategory === "all" || entry.item.category === selectedCategory;
+    const matchesSearch = !searchQuery || 
+      entry.item.title.toLowerCase().includes(searchQuery) || 
+      entry.item.notes.toLowerCase().includes(searchQuery);
+    return matchesCategory && matchesSearch;
+  });
   document.querySelector("#plan")!.innerHTML = plan.length ? plan.map((entry) => `<article class="record">
     <div><span class="badge">${escapeHtml(entry.item.category)}</span><h3>${escapeHtml(entry.item.title)}</h3>
     <p>${escapeHtml(entry.reasons.join("; "))}</p>
