@@ -144,7 +144,9 @@ function render(records: readonly LifeRecord[]): void {
     if (!item) return;
     store.upsert({ ...item, status: select.value as ItemStatus, updatedAt: new Date().toISOString() });
   };
-  for (const button of document.querySelectorAll<HTMLButtonElement>("[data-remove]")) button.onclick = () => store.remove(button.dataset.remove!);
+  for (const button of document.querySelectorAll<HTMLButtonElement>("[data-remove]")) button.onclick = () => {
+    if (confirm(`Remove "${escapeHtml(records.find(r => r.id === button.dataset.remove!)?.title ?? 'this record')}"?`)) store.remove(button.dataset.remove!);
+  };
   document.querySelector("#week")!.innerHTML = suggestDailyLoad(records, Number(capacity.value) || 90).map((day) => `<article class="day ${day.overloaded ? "over" : ""}">
     <span>${new Date(`${day.date}T00:00:00`).toLocaleDateString(undefined, { weekday: "short" })}</span><strong>${day.used} min</strong>
     <small>${day.entries.length} item(s)</small></article>`).join("");
