@@ -89,12 +89,26 @@ function render(records: readonly LifeRecord[]): void {
   ].map(([label, value]) => `<article><span>${label}</span><strong>${value}</strong></article>`).join("");
   const plan = buildPlan(records).filter((entry) => selectedCategory === "all" || entry.item.category === selectedCategory);
   document.querySelector("#plan")!.innerHTML = plan.length ? plan.map((entry) => `<article class="record">
-    <div><span class="badge">${escapeHtml(entry.item.category)}</span><h3>${escapeHtml(entry.item.title)}</h3><p>${escapeHtml(entry.reasons.join("; "))}</p></div>
+    <div><span class="badge">${escapeHtml(entry.item.category)}</span><h3>${escapeHtml(entry.item.title)}</h3>
+    <p>${escapeHtml(entry.reasons.join("; "))}</p>
+    <textarea class="record-notes" data-id="${escapeHtl(entry.item.id)}" placeholder="Add notes...">${escapeHtml(entry.item.notes)}</textarea></div>
     <div class="record-actions"><strong>${entry.score}</strong><select data-status="${escapeHtml(entry.item.id)}">
     ${(["planned", "active", "done"] as ItemStatus[]).map((status) => `<option ${status === entry.item.status ? "selected" : ""}>${status}</option>`).join("")}</select>
     <button class="danger ghost" data-remove="${escapeHtml(entry.item.id)}">Remove</button></div></article>`).join("") : "<p class='empty'>No open records match this view.</p>";
+  
+  for (const textarea of document.querySelectorAll<HTMLTextAreaElement>(".record-notes")) {
+    textarea.onblur = () => {
+      const id = textarea.dataset.id!;
+      const item = records.find((x) => x.id === id);
+      if (item && item.notes !== textarea.value) {
+        store.upsert({ ...item, notes: textarea.value, updatedAt: new Date().toISOString() });
+      }
+    };
+  }
+
   for (const select of document.querySelectorAll<HTMLSelectElement>("[data-status]")) select.onchange = () => {
-    const item = records.find((x) => x.id === select.dataset.status); if (!item) return;
+    const item = records.find((x) => x.id === select.dataset.status);
+    if (!item) return;
     store.upsert({ ...item, status: select.value as ItemStatus, updatedAt: new Date().toISOString() });
   };
   for (const button of document.querySelectorAll<HTMLButtonElement>("[data-remove]")) button.onclick = () => store.remove(button.dataset.remove!);
@@ -102,5 +116,8 @@ function render(records: readonly LifeRecord[]): void {
     <span>${new Date(`${day.date}T00:00:00`).toLocaleDateString(undefined, { weekday: "short" })}</span><strong>${day.used} min</strong>
     <small>${day.entries.length} item(s)</small></article>`).join("");
 }
+
+// Helper for dataset values since escapeHtml was designed for content
+function escapeHtl(value: string) { return value.replace(/["']/g, ""); }
 
 store.subscribe(render);
