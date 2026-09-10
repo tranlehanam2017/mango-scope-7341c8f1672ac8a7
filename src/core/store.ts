@@ -31,6 +31,11 @@ export class RecordStore {
     this.commit();
   }
 
+  clear(): void {
+    this.records = [];
+    this.commit();
+  }
+
   replace(records: LifeRecord[]): void {
     this.records = records.map((item) => ({ ...item }));
     this.commit();

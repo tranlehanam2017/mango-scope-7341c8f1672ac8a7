@@ -38,7 +38,8 @@ root.innerHTML = `
     <label>${theme.impactLabel}<input name="impact" type="number" min="1" max="5" value="3" required></label></div>
     <label>Notes<textarea name="notes" rows="3" maxlength="600"></textarea></label><p id="errors" class="errors"></p>
     <button type="submit">Add to plan</button></form><div class="exchange"><button id="csv" class="ghost">Export CSV</button>
-    <label class="file">Import JSON<input id="import" type="file" accept="application/json"></label></div></section>
+    <label class="file">Import JSON<input id="import" type="file" accept="application/json"></label>
+    <button id="clear-all" class="ghost danger">Clear All</button></div></section>
   <section class="panel plan-panel"><div class="panel-title"><h2>Priority plan</h2><select id="filter"><option value="all">All categories</option>
     ${theme.categories.map((x) => `<option>${x}</option>`).join("")}</select></div><div id="plan"></div></section></main>
   <section class="panel week-panel"><div class="panel-title"><h2>Seven-day load</h2><label>Daily capacity
@@ -75,6 +76,9 @@ document.querySelector<HTMLInputElement>("#import")!.addEventListener("change", 
   const file = (event.target as HTMLInputElement).files?.[0]; if (!file) return;
   try { store.replace(importJson(await file.text(), theme)); errors.textContent = ""; }
   catch (error) { errors.textContent = error instanceof Error ? error.message : "Import failed."; }
+});
+document.querySelector("#clear-all")!.addEventListener("click", () => {
+  if (confirm("Are you sure you want to remove all records?")) store.clear();
 });
 
 function render(records: readonly LifeRecord[]): void {
