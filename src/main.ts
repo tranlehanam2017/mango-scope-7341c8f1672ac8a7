@@ -101,7 +101,6 @@ function render(records: readonly LifeRecord[]): void {
     ["Overdue", summary.overdue], [theme.effortLabel, summary.effort],
   ].map(([label, value]) => `<article><span>${label}</span><strong>${value}</strong></article>`).join("");
   
-  const planEntries = buildPlan(records);
   const allRecords = [...records].sort((a, b) => {
     const aEntry = priorityFor(a);
     const bEntry = priorityFor(b);
@@ -123,6 +122,10 @@ function render(records: readonly LifeRecord[]): void {
     return `<article class="record ${isDone ? "done" : ""}">
       <div><span class="badge">${escapeHtml(item.category)}</span><h3 style="${isDone ? "text-decoration: line-through; opacity: 0.6" : ""}">${escapeHtml(item.title)}</h3>
       <p>${escapeHtml(entry.reasons.join("; "))}</p>
+      <div class="record-edit-grid">
+        <label>${theme.effortLabel}<input type="number" class="edit-effort" data-id="${escapeHtl(item.id)}" value="${item.effort}" min="1" max="480"></label>
+        <label>${theme.impactLabel}<input type="number" class="edit-impact" data-id="${escapeHtl(item.id)}" value="${item.impact}" min="1" max="5"></label>
+      </div>
       <textarea class="record-notes" data-id="${escapeHtl(item.id)}" placeholder="Add notes...">${escapeHtml(item.notes)}</textarea></div>
       <div class="record-actions"><strong style="${isDone ? "opacity: 0.5" : ""}">${entry.score}</strong><select data-status="${escapeHtml(item.id)}">
       ${(["planned", "active", "done"] as ItemStatus[]).map((status) => `<option ${status === item.status ? "selected" : ""}>${status}</option>`).join("")}</select>
@@ -135,6 +138,24 @@ function render(records: readonly LifeRecord[]): void {
       const item = records.find((x) => x.id === id);
       if (item && item.notes !== textarea.value) {
         store.upsert({ ...item, notes: textarea.value, updatedAt: new Date().toISOString() });
+      }
+    };
+  }
+
+  for (const input of document.querySelectorAll<HTMLInputElement>(".edit-effort, .edit-impact")) {
+    input.onchange = () => {
+      const id = input.dataset.id!;
+      const item = records.find((x) => x.id === id);
+      if (!item) return;
+      const val = parseInt(input.value, 10);
+      if (Number.isNaN(val)) return;
+      
+      if (input.classList.contains("edit-effort")) {
+        if (val < 1 || val > 480) return;
+        store.upsert({ ...item, effort: val, updatedAt: new Date().toISOString() });
+      } else {
+        if (val < 1 || val > 5) return;
+        store.upsert({ ...item, impact: val, updatedAt: new Date().toISOString() });
       }
     };
   }
