@@ -43,7 +43,7 @@ root.innerHTML = `
     <label class="file">Import JSON<input id="import" type="file" accept="application/json"></label>
     <button id="clear-all" class="ghost danger">Clear All</button></div></section>
   <section class="panel plan-panel"><div class="panel-title"><h2>Priority plan</h2><div class="filter-group"><input id="search" placeholder="Search records..."><select id="filter"><option value="all">All categories</option>
-    ${theme.categories.map((x) => `<option>${x}</option>`).join("")}</select><label class="checkbox-label"><input id="show-completed" type="checkbox"> Show done</label></div></div><div id="plan"></div></section></main>
+    ${theme.categories.map((x) => `<option>${x}</option>`).join("")}</select><label class="checkbox-label"><input id="show-completed" type="checkbox"> Show done</label></div></div><div id="bulk-actions" class="bulk-actions"></div><div id="plan"></div></section></main>
   <section class="panel week-panel"><div class="panel-title"><h2>Seven-day load</h2><label>Daily capacity
     <input id="capacity" type="number" min="15" max="480" step="15" value="90"></label></div><div id="week" class="week"></div></section>
 `;
@@ -69,7 +69,8 @@ form.addEventListener("submit", (event) => {
 });
 
 document.querySelector<HTMLSelectElement>("#filter")!.addEventListener("change", (event) => {
-  selectedCategory = (event.target as HTMLSelectElement).value; render(store.all());
+  selectedCategory = (event.target as HTMLSelectElement).value;
+  render(store.all());
 });
 
 document.querySelector<HTMLInputElement>("#search")!.addEventListener("input", (event) => {
@@ -115,6 +116,34 @@ function render(records: readonly LifeRecord[]): void {
       item.notes.toLowerCase().includes(searchQuery);
     return matchesCategory && matchesSearch;
   });
+
+  const bulkDiv = document.querySelector("#bulk-actions")!;
+  const doneCount = records.filter(r => r.status === "done").length;
+  bulkDiv.innerHTML = '';
+  if (doneCount > 0) {
+    const btn = document.createElement('button');
+    btn.className = 'ghost danger';
+    btn.textContent = `Clear ${doneCount} completed`;
+    btn.onclick = () => {
+      if (confirm(`Delete ${doneCount} completed records?`)) {
+        const remaining = records.filter(r => r.status !== 'done');
+        store.replace(remaining);
+      }
+    };
+    bulkDiv.appendChild(btn);
+  }
+  if (selectedCategory !== 'all') {
+    const btn = document.createElement('button');
+    btn.className = 'ghost';
+    btn.textContent = `Mark ${selectedCategory} as done`;
+    btn.onclick = () => {
+      const now = new Date().toISOString();
+      records.filter(r => r.category === selectedCategory && r.status !== 'done').forEach(r => {
+        store.upsert({ ...r, status: 'done', updatedAt: now });
+      });
+    };
+    bulkDiv.appendChild(btn);
+  }
 
   document.querySelector("#plan")!.innerHTML = filtered.length ? filtered.map((item) => {
     const entry = priorityFor(item);
