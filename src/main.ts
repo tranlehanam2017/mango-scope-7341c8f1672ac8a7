@@ -149,7 +149,12 @@ function render(records: readonly LifeRecord[]): void {
     const entry = priorityFor(item);
     const isDone = item.status === "done";
     return `<article class="record ${isDone ? "done" : ""}">
-      <div><span class="badge">${escapeHtml(item.category)}</span><h3 style="${isDone ? "text-decoration: line-through; opacity: 0.6" : ""}">${escapeHtml(item.title)}</h3>
+      <div><span class="badge">
+        <select class="edit-category" data-id="${escapeHtl(item.id)}">
+          ${theme.categories.map(cat => `<option ${cat === item.category ? 'selected' : ''}>${cat}</option>`).join('')}
+        </select>
+      </span>
+      <input class="edit-title" data-id="${escapeHtl(item.id)}" value="${escapeHtml(item.title)}" maxlength="100" style="${isDone ? "text-decoration: line-through; opacity: 0.6" : ""}">
       <p>${escapeHtml(entry.reasons.join("; "))}</p>
       <div class="record-edit-grid">
         <label>${theme.effortLabel}<input type="number" class="edit-effort" data-id="${escapeHtl(item.id)}" value="${item.effort}" min="1" max="480"></label>
@@ -171,20 +176,31 @@ function render(records: readonly LifeRecord[]): void {
     };
   }
 
-  for (const input of document.querySelectorAll<HTMLInputElement>(".edit-effort, .edit-impact")) {
+  for (const input of document.querySelectorAll<HTMLInputElement>(".edit-effort, .edit-impact, .edit-title")) {
     input.onchange = () => {
       const id = input.dataset.id!;
       const item = records.find((x) => x.id === id);
       if (!item) return;
-      const val = parseInt(input.value, 10);
-      if (Number.isNaN(val)) return;
+      const val = input.value;
       
-      if (input.classList.contains("edit-effort")) {
-        if (val < 1 || val > 480) return;
-        store.upsert({ ...item, effort: val, updatedAt: new Date().toISOString() });
-      } else {
-        if (val < 1 || val > 5) return;
-        store.upsert({ ...item, impact: val, updatedAt: new Date().toISOString() });
+      if (input.classList.contains("edit-title")) {
+        if (item.title !== val) store.upsert({ ...item, title: val.trim(), updatedAt: new Date().toISOString() });
+      } else if (input.classList.contains("edit-effort")) {
+        const num = parseInt(val, 10);
+        if (!Number.isNaN(num) && num >= 1 && num <= 480) store.upsert({ ...item, effort: num, updatedAt: new Date().toISOString() });
+      } else if (input.classList.contains("edit-impact")) {
+        const num = parseInt(val, 10);
+        if (!Number.isNaN(num) && num >= 1 && num <= 5) store.upsert({ ...item, impact: num, updatedAt: new Date().toISOString() });
+      }
+    };
+  }
+
+  for (const select of document.querySelectorAll<HTMLSelectElement>(".edit-category")) {
+    select.onchange = () => {
+      const id = select.dataset.id!;
+      const item = records.find((x) => x.id === id);
+      if (item && item.category !== select.value) {
+        store.upsert({ ...item, category: select.value, updatedAt: new Date().toISOString() });
       }
     };
   }
