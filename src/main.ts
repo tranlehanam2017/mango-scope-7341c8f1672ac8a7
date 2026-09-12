@@ -74,7 +74,7 @@ document.querySelector<HTMLSelectElement>("#filter")!.addEventListener("change",
 });
 
 document.querySelector<HTMLInputElement>("#search")!.addEventListener("input", (event) => {
-  searchQuery = (event.target as HTMLInputElement).value.toLowerCase();
+  searchQuery = (event.target as HTMLInputElement).value.toLowerCase().trim();
   render(store.all());
 });
 
@@ -92,7 +92,9 @@ document.querySelector<HTMLInputElement>("#import")!.addEventListener("change", 
   catch (error) { errors.textContent = error instanceof Error ? error.message : "Import failed."; }
 });
 document.querySelector("#clear-all")!.addEventListener("click", () => {
-  if (confirm("Are you sure you want to remove all records?")) store.clear();
+  const records = store.all();
+  if (records.length === 0) return;
+  if (confirm(`Are you sure you want to remove all ${records.length} records? This action cannot be undone.`)) store.clear();
 });
 
 function render(records: readonly LifeRecord[]): void {
