@@ -20,6 +20,10 @@ let selectedCategory = "all";
 let searchQuery = "";
 let showCompleted = false;
 
+// Undo state
+let lastDeletedRecord: LifeRecord | null = null;
+let undoTimeout: number | null = null;
+
 const HTML_ENTITIES: Readonly<Record<string, string>> = {
   "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
 };
@@ -46,11 +50,33 @@ root.innerHTML = `
     ${theme.categories.map((x) => `<option>${x}</option>`).join("")}</select><label class="checkbox-label"><input id="show-completed" type="checkbox"> Show done</label></div></div><div id="bulk-actions" class="bulk-actions"></div><div id="plan"></div></section></main>
   <section class="panel week-panel"><div class="panel-title"><h2>Seven-day load</h2><label>Daily capacity
     <input id="capacity" type="number" min="15" max="480" step="15" value="90"></label></div><div id="week" class="week"></div></section>
+  <div id="undo-toast" class="undo-toast"></div>
 `;
 
 const form = document.querySelector<HTMLFormElement>("#record-form")!;
 const errors = document.querySelector<HTMLParagraphElement>("#errors")!;
 const capacity = document.querySelector<HTMLInputElement>("#capacity")!;
+const undoToast = document.querySelector<HTMLDivElement>("#undo-toast")!;
+
+function showUndo(record: LifeRecord) {
+  lastDeletedRecord = record;
+  undoToast.innerHTML = `<span>Deleted "${escapeHtml(record.title)}"</span><button id="undo-btn">Undo</button>`;
+  undoToast.classList.add("visible");
+  
+  if (undoTimeout) clearTimeout(undoTimeout);
+  undoTimeout = window.setTimeout(() => {
+    undoToast.classList.remove("visible");
+    lastDeletedRecord = null;
+  }, 8000);
+
+  document.querySelector("#undo-btn")!.onclick = () => {
+    if (lastDeletedRecord) {
+      store.upsert(lastDeletedRecord);
+      undoToast.classList.remove("visible");
+      lastDeletedRecord = null;
+    }
+  };
+}
 
 form.addEventListener("submit", (event) => {
   event.preventDefault();
@@ -216,7 +242,11 @@ function render(records: readonly LifeRecord[]): void {
     store.upsert({ ...item, status: select.value as ItemStatus, updatedAt: new Date().toISOString() });
   };
   for (const button of document.querySelectorAll<HTMLButtonElement>("[data-remove]")) button.onclick = () => {
-    if (confirm(`Remove "${escapeHtml(records.find(r => r.id === button.dataset.remove!)?.title ?? 'this record')}"?`)) store.remove(button.dataset.remove!);
+    const record = records.find(r => r.id === button.dataset.remove!);
+    if (record && confirm(`Remove "${escapeHtml(record.title)}"?`)) {
+      showUndo(record);
+      store.remove(record.id);
+    }
   };
   document.querySelector("#week")!.innerHTML = suggestDailyLoad(records, Number(capacity.value) || 90).map((day) => `<article class="day ${day.overloaded ? "over" : ""}">
     <span>${new Date(`${day.date}T00:00:00`).toLocaleDateString(undefined, { weekday: "short" })}</span><strong>${day.used} min</strong>

@@ -28,4 +28,7 @@ label { display: grid; gap: .35rem; color: #526b64; font-size: .82rem; font-weig
 .bulk-actions { display: flex; gap: .5rem; margin-bottom: 1rem; }
 .edit-title { border: 0; background: transparent; font-size: 1.1rem; font-weight: 700; padding: 0; color: inherit; width: auto; flex: 1; }
 .edit-title:focus { background: #fbfdfc; outline: 1px solid #cbdad3; border-radius: .2rem; }
+.undo-toast { position: fixed; bottom: 2rem; left: 50%; transform: translateX(-50%); background: #18302b; color: white; padding: 1rem 1.5rem; border-radius: 2rem; display: flex; align-items: center; gap: 1rem; box-shadow: 0 10px 30px rgba(0,0,0,0.2); transition: opacity 0.3s, transform 0.3s; opacity: 0; pointer-events: none; z-index: 1000; }
+.undo-toast.visible { opacity: 1; pointer-events: auto; transform: translate(-50%, -1rem); }
+.undo-toast button { background: #176b55; padding: .4rem .8rem; font-size: .8rem; }
 @media (max-width: 820px) { #app { padding: 1rem; } .layout { grid-template-columns: 1fr; } .summary { grid-template-columns: 1fr 1fr; } .week { grid-template-columns: repeat(2,1fr); } .hero { align-items: start; } .filter-group { flex-direction: column; align-items: stretch; } #search { width: 100%; } }
