@@ -159,6 +159,7 @@ function render(records: readonly LifeRecord[]): void {
       <input class="edit-title" data-id="${escapeHtl(item.id)}" value="${escapeHtml(item.title)}" maxlength="100" style="${isDone ? "text-decoration: line-through; opacity: 0.6" : ""}">
       <p>${escapeHtml(entry.reasons.join("; "))}</p>
       <div class="record-edit-grid">
+        <label>${theme.dateLabel}<input type="date" class="edit-date" data-id="${escapeHtl(item.id)}" value="${item.dueDate}"></label>
         <label>${theme.effortLabel}<input type="number" class="edit-effort" data-id="${escapeHtl(item.id)}" value="${item.effort}" min="1" max="480"></label>
         <label>${theme.impactLabel}<input type="number" class="edit-impact" data-id="${escapeHtl(item.id)}" value="${item.impact}" min="1" max="5"></label>
       </div>
@@ -178,7 +179,7 @@ function render(records: readonly LifeRecord[]): void {
     };
   }
 
-  for (const input of document.querySelectorAll<HTMLInputElement>(".edit-effort, .edit-impact, .edit-title")) {
+  for (const input of document.querySelectorAll<HTMLInputElement>(".edit-effort, .edit-impact, .edit-title, .edit-date")) {
     input.onchange = () => {
       const id = input.dataset.id!;
       const item = records.find((x) => x.id === id);
@@ -193,6 +194,8 @@ function render(records: readonly LifeRecord[]): void {
       } else if (input.classList.contains("edit-impact")) {
         const num = parseInt(val, 10);
         if (!Number.isNaN(num) && num >= 1 && num <= 5) store.upsert({ ...item, impact: num, updatedAt: new Date().toISOString() });
+      } else if (input.classList.contains("edit-date")) {
+        if (item.dueDate !== val) store.upsert({ ...item, dueDate: val, updatedAt: new Date().toISOString() });
       }
     };
   }
