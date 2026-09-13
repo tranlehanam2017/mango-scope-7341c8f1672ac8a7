@@ -198,7 +198,10 @@ function render(records: readonly LifeRecord[]): void {
       <textarea class="record-notes" data-id="${escapeHtl(item.id)}" placeholder="Add notes...">${escapeHtml(item.notes)}</textarea></div>
       <div class="record-actions"><strong class="${scoreClass}" style="${isDone ? "opacity: 0.5" : ""}">${entry.score}</strong><select data-status="${escapeHtml(item.id)}">
       ${(["planned", "active", "done"] as ItemStatus[]).map((status) => `<option ${status === item.status ? "selected" : ""}>${status}</option>`).join("")}</select>
-      <button class="danger ghost" data-remove="${escapeHtml(item.id)}" aria-label="Remove ${escapeHtml(item.title)}">Remove</button></div></article>`;
+      <div class="record-btn-group">
+        <button class="ghost" data-duplicate="${escapeHtml(item.id)}" aria-label="Duplicate ${escapeHtml(item.title)}">Duplicate</button>
+        <button class="danger ghost" data-remove="${escapeHtml(item.id)}" aria-label="Remove ${escapeHtml(item.title)}">Remove</button>
+      </div></div></article>`;
   }).join("") : "<p class='empty'>No open records match this view.</p>";
   
   for (const textarea of document.querySelectorAll<HTMLTextAreaElement>(".record-notes")) {
@@ -252,6 +255,19 @@ function render(records: readonly LifeRecord[]): void {
     if (record && confirm(`Remove "${escapeHtml(record.title)}"?`)) {
       showUndo(record);
       store.remove(record.id);
+    }
+  };
+  for (const button of document.querySelectorAll<HTMLButtonElement>("[data-duplicate]")) button.onclick = () => {
+    const record = records.find(r => r.id === button.dataset.duplicate!);
+    if (record) {
+      const now = new Date().toISOString();
+      store.upsert({
+        ...record,
+        id: crypto.randomUUID(),
+        title: `${record.title} (Copy)`,
+        createdAt: now,
+        updatedAt: now
+      });
     }
   };
   document.querySelector("#week")!.innerHTML = suggestDailyLoad(records, Number(capacity.value) || 90).map((day) => `<article class="day ${day.overloaded ? "over" : ""}">
