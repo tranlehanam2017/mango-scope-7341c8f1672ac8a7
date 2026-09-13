@@ -222,15 +222,20 @@ function render(records: readonly LifeRecord[]): void {
       const val = input.value;
       
       if (input.classList.contains("edit-title")) {
-        if (item.title !== val) store.upsert({ ...item, title: val.trim(), updatedAt: new Date().toISOString() });
+        const trimmed = val.trim();
+        if (trimmed.length > 0 && item.title !== trimmed) store.upsert({ ...item, title: trimmed, updatedAt: new Date().toISOString() });
+        else if (trimmed.length === 0) input.value = item.title;
       } else if (input.classList.contains("edit-effort")) {
         const num = parseInt(val, 10);
         if (!Number.isNaN(num) && num >= 1 && num <= 480) store.upsert({ ...item, effort: num, updatedAt: new Date().toISOString() });
+        else input.value = item.effort.toString();
       } else if (input.classList.contains("edit-impact")) {
         const num = parseInt(val, 10);
         if (!Number.isNaN(num) && num >= 1 && num <= 5) store.upsert({ ...item, impact: num, updatedAt: new Date().toISOString() });
+        else input.value = item.impact.toString();
       } else if (input.classList.contains("edit-date")) {
-        if (item.dueDate !== val) store.upsert({ ...item, dueDate: val, updatedAt: new Date().toISOString() });
+        if (val && item.dueDate !== val) store.upsert({ ...item, dueDate: val, updatedAt: new Date().toISOString() });
+        else if (!val) input.value = item.dueDate;
       }
     };
   }
@@ -276,6 +281,6 @@ function render(records: readonly LifeRecord[]): void {
 }
 
 // Helper for dataset values since escapeHtml was designed for content
-function escapeHtl(value: string) { return value.replace(/["']/g, ""); }
+function escapeHtl(value: string) { return value.replace(/[\"']/g, ""); }
 
 store.subscribe(render);
