@@ -35,8 +35,7 @@ root.innerHTML = `
     <p>${theme.tagline}</p></div><div class="revision" title="Repository revision ledger">
     <span>revision</span><strong>${revisionLedger.ordinal}</strong><small>${revisionLedger.day}</small></div></header>
   <section id="summary" class="summary"></section>
-  <main class="layout"><section class="panel"><div class="panel-title"><h2>Add ${theme.itemLabel.toLowerCase()}</h2>
-    <button id="seed-export" class="ghost">Export JSON</button></div><form id="record-form" novalidate>
+  <main class="layout"><section class="panel"><div class="panel-title"><h2>Add ${theme.itemLabel.toLowerCase()}</h2><div class="panel-actions"><button id="seed-export" class="ghost">Export JSON</button><button id="clear-form" class="ghost">Clear Form</button></div></div><form id="record-form" novalidate>
     <label>Title<input name="title" maxlength="100" required></label>
     <div class="form-grid"><label>Category<select name="category">${theme.categories.map((x) => `<option>${x}</option>`).join("")}</select></label>
     <label>${theme.dateLabel}<input name="dueDate" type="date" value="${localDay()}" required></label>
@@ -92,6 +91,12 @@ form.addEventListener("submit", (event) => {
   if (complaints.length) { errors.textContent = complaints.join(" "); return; }
   errors.textContent = ""; store.upsert(item); form.reset();
   (form.elements.namedItem("dueDate") as HTMLInputElement).value = localDay();
+});
+
+document.querySelector("#clear-form")!.addEventListener("click", () => {
+  form.reset();
+  (form.elements.namedItem("dueDate") as HTMLInputElement).value = localDay();
+  errors.textContent = "";
 });
 
 document.querySelector<HTMLSelectElement>("#filter")!.addEventListener("change", (event) => {
