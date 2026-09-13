@@ -125,7 +125,7 @@ document.querySelector<HTMLInputElement>("#import")!.addEventListener("change", 
 document.querySelector("#clear-all")!.addEventListener("click", () => {
   const records = store.all();
   if (records.length === 0) return;
-  if (confirm(`Are you sure you want to remove all ${records.length} records? This action cannot be undone.`)) store.clear();
+  if (confirm(`Warning: This will permanently delete all ${records.length} records from your local storage. Are you sure you want to proceed?`)) store.clear();
 });
 
 function render(records: readonly LifeRecord[]): void {
@@ -197,7 +197,7 @@ function render(records: readonly LifeRecord[]): void {
       <textarea class="record-notes" data-id="${escapeHtl(item.id)}" placeholder="Add notes...">${escapeHtml(item.notes)}</textarea></div>
       <div class="record-actions"><strong style="${isDone ? "opacity: 0.5" : ""}">${entry.score}</strong><select data-status="${escapeHtml(item.id)}">
       ${(["planned", "active", "done"] as ItemStatus[]).map((status) => `<option ${status === item.status ? "selected" : ""}>${status}</option>`).join("")}</select>
-      <button class="danger ghost" data-remove="${escapeHtml(item.id)}">Remove</button></div></article>`;
+      <button class="danger ghost" data-remove="${escapeHtml(item.id)}" aria-label="Remove ${escapeHtml(item.title)}">Remove</button></div></article>`;
   }).join("") : "<p class='empty'>No open records match this view.</p>";
   
   for (const textarea of document.querySelectorAll<HTMLTextAreaElement>(".record-notes")) {
