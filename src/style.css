@@ -22,9 +22,9 @@ label { display: grid; gap: .35rem; color: #526b64; font-size: .82rem; font-weig
 .record-btn-group { display: flex; gap: .4rem; }
 .record-actions strong { font-size: 1.4rem; }
 .week-panel { margin-top: 1.2rem; } .week { display: grid; grid-template-columns: repeat(7,1fr); gap: .65rem; } .day { padding: .8rem; border-radius: .7rem; background: #edf6f2; } .day span,.day small { display: block; } .day strong { display: block; margin: .35rem 0; } .day.over { background: #fff0e3; color: #863f19; } .empty { color: #70877f; padding: 2rem; text-align: center; }
-.filter-group { display: flex; gap: .5rem; align-items: center; }
+.filter-group { display: flex; gap: .5rem; align-items: center; flex-wrap: wrap; }
 #search { width: 200px; }
-.checkbox-label { display: flex; align-items: center; gap: .4rem; cursor: pointer; }
+.checkbox-label { display: flex; align-items: center; gap: .4rem; cursor: pointer; white-space: nowrap; }
 .checkbox-label input { width: auto; }
 .record.done { opacity: 0.7; background: #f8faf9; filter: grayscale(0.4); }
 .bulk-actions { display: flex; gap: .5rem; margin-bottom: 1rem; }

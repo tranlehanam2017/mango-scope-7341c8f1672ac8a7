@@ -19,6 +19,7 @@ const store = new RecordStore(`life-board:${theme.id}:v1`, initial);
 let selectedCategory = "all";
 let searchQuery = "";
 let showCompleted = false;
+let activeOnly = false;
 
 // Undo state
 let lastDeletedRecord: LifeRecord | null = null;
@@ -46,7 +47,7 @@ root.innerHTML = `
     <label class="file">Import JSON<input id="import" type="file" accept="application/json"></label>
     <button id="clear-all" class="ghost danger">Clear All</button></div></section>
   <section class="panel plan-panel"><div class="panel-title"><h2>Priority plan</h2><div class="filter-group"><input id="search" placeholder="Search records..."><select id="filter"><option value="all">All categories</option>
-    ${theme.categories.map((x) => `<option>${x}</option>`).join("")}</select><label class="checkbox-label"><input id="show-completed" type="checkbox"> Show done</label></div></div><div id="bulk-actions" class="bulk-actions"></div><div id="plan"></div></section></main>
+    ${theme.categories.map((x) => `<option>${x}</option>`).join("")}</select><label class="checkbox-label"><input id="show-completed" type="checkbox"> Show done</label><label class="checkbox-label"><input id="active-only" type="checkbox"> Active only</label></div></div><div id="bulk-actions" class="bulk-actions"></div><div id="plan"></div></section></main>
   <section class="panel week-panel"><div class="panel-title"><h2>Seven-day load</h2><label>Daily capacity
     <input id="capacity" type="number" min="15" max="480" step="15" value="90"></label></div><div id="week" class="week"></div></section>
   <div id="undo-toast" class="undo-toast"></div>
@@ -114,6 +115,11 @@ document.querySelector<HTMLInputElement>("#show-completed")!.addEventListener("c
   render(store.all());
 });
 
+document.querySelector<HTMLInputElement>("#active-only")!.addEventListener("change", (event) => {
+  activeOnly = (event.target as HTMLInputElement).checked;
+  render(store.all());
+});
+
 capacity.addEventListener("input", () => render(store.all()));
 document.querySelector("#seed-export")!.addEventListener("click", () => download("records.json", exportJson(store.all()), "application/json"));
 document.querySelector("#csv")!.addEventListener("click", () => download("records.csv", exportCsv(store.all()), "text/csv"));
@@ -143,6 +149,7 @@ function render(records: readonly LifeRecord[]): void {
 
   const filtered = allRecords.filter((item) => {
     if (!showCompleted && item.status === "done") return false;
+    if (activeOnly && item.status !== "active") return false;
     const matchesCategory = selectedCategory === "all" || item.category === selectedCategory;
     const matchesSearch = !searchQuery || 
       item.title.toLowerCase().includes(searchQuery) || 
