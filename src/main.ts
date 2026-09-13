@@ -181,6 +181,7 @@ function render(records: readonly LifeRecord[]): void {
   document.querySelector("#plan")!.innerHTML = filtered.length ? filtered.map((item) => {
     const entry = priorityFor(item);
     const isDone = item.status === "done";
+    const scoreClass = entry.score > 100 ? "score-high" : entry.score > 60 ? "score-med" : "score-low";
     return `<article class="record ${isDone ? "done" : ""}">
       <div><span class="badge">
         <select class="edit-category" data-id="${escapeHtl(item.id)}">
@@ -195,7 +196,7 @@ function render(records: readonly LifeRecord[]): void {
         <label>${theme.impactLabel}<input type="number" class="edit-impact" data-id="${escapeHtl(item.id)}" value="${item.impact}" min="1" max="5"></label>
       </div>
       <textarea class="record-notes" data-id="${escapeHtl(item.id)}" placeholder="Add notes...">${escapeHtml(item.notes)}</textarea></div>
-      <div class="record-actions"><strong style="${isDone ? "opacity: 0.5" : ""}">${entry.score}</strong><select data-status="${escapeHtml(item.id)}">
+      <div class="record-actions"><strong class="${scoreClass}" style="${isDone ? "opacity: 0.5" : ""}">${entry.score}</strong><select data-status="${escapeHtml(item.id)}">
       ${(["planned", "active", "done"] as ItemStatus[]).map((status) => `<option ${status === item.status ? "selected" : ""}>${status}</option>`).join("")}</select>
       <button class="danger ghost" data-remove="${escapeHtml(item.id)}" aria-label="Remove ${escapeHtml(item.title)}">Remove</button></div></article>`;
   }).join("") : "<p class='empty'>No open records match this view.</p>";
