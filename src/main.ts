@@ -149,6 +149,18 @@ document.querySelector("#clear-all")!.addEventListener("click", () => {
   if (confirm(`Warning: This will permanently delete all ${records.length} records from your local storage. Are you sure you want to proceed?`)) store.clear();
 });
 
+// Keyboard shortcuts
+window.addEventListener("keydown", (event) => {
+  if ((event.metaKey || event.ctrlKey) && event.key === "n") {
+    event.preventDefault();
+    (form.elements.namedItem("title") as HTMLInputElement).focus();
+  }
+  if ((event.metaKey || event.ctrlKey) && event.key === "f") {
+    event.preventDefault();
+    document.querySelector("#search")!.focus();
+  }
+});
+
 function render(records: readonly LifeRecord[]): void {
   const summary = summarize(records);
   document.querySelector("#summary")!.innerHTML = [
@@ -226,9 +238,9 @@ function render(records: readonly LifeRecord[]): void {
           ${(["planned", "active", "done"] as ItemStatus[]).map((status) => `<option ${status === item.status ? "selected" : ""}>${status}</option>`).join("")}
         </select>
         <div class="record-btn-group">
-          <button class="ghost" data-tomorrow="${escapeHtml(item.id)}" aria-label="Move ${escapeHtml(item.title)} to tomorrow">Tomorrow</button>
-          <button class="ghost" data-duplicate="${escapeHtml(item.id)}" aria-label="Duplicate ${escapeHtml(item.title)}">Duplicate</button>
-          <button class="danger ghost" data-remove="${escapeHtml(item.id)}" aria-label="Remove ${escapeHtml(item.title)}">Remove</button>
+          <button class="ghost" data-tomorrow="${escapeHtl(item.id)}" aria-label="Move ${escapeHtml(item.title)} to tomorrow">Tomorrow</button>
+          <button class="ghost" data-duplicate="${escapeHtl(item.id)}" aria-label="Duplicate ${escapeHtml(item.title)}">Duplicate</button>
+          <button class="danger ghost" data-remove="${escapeHtl(item.id)}" aria-label="Remove ${escapeHtml(item.title)}">Remove</button>
         </div>
       </div></article>`;
   }).join("") : "<p class='empty'>No open records match this view.</p>";
