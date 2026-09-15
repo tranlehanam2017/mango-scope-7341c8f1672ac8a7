@@ -244,7 +244,11 @@ function render(records: readonly LifeRecord[]): void {
           <label>${theme.effortLabel}<input type="number" class="edit-effort" data-id="${escapeHtl(item.id)}" value="${item.effort}" min="1" max="480"></label>
           <label>${theme.impactLabel}<input type="number" class="edit-impact" data-id="${escapeHtl(item.id)}" value="${item.impact}" min="1" max="5"></label>
         </div>
-        <textarea class="record-notes" data-id="${escapeHtl(item.id)}" placeholder="Add notes...">${escapeHtml(item.notes)}</textarea>
+        <div class="record-notes-container" data-id="${escapeHtl(item.id)}">
+          <div class="notes-preview">${item.notes ? escapeHtml(item.notes) : '<span class="placeholder">No notes...</span>'}</div>
+          <textarea class="record-notes hidden" placeholder="Add notes...">${escapeHtml(item.notes)}</textarea>
+          <button class="ghost notes-toggle">Edit Notes</button>
+        </div>
       </div>
       <div class="record-actions">
         <div class="score-wrap"><strong class="${scoreClass}" style="${isDone ? "opacity: 0.5" : ""}">${entry.score}</strong></div>
@@ -260,13 +264,30 @@ function render(records: readonly LifeRecord[]): void {
       </div></article>`;
   }).join("") : "<p class='empty'>No open records match this view.</p>";
   
-  for (const textarea of document.querySelectorAll<HTMLTextAreaElement>(".record-notes")) {
+  for (const container of document.querySelectorAll<HTMLDivElement>(".record-notes-container")) {
+    const id = container.dataset.id!;
+    const textarea = container.querySelector<HTMLTextAreaElement>(".record-notes")!;
+    const preview = container.querySelector<HTMLDivElement>(".notes-preview")!;
+    const toggle = container.querySelector<HTMLButtonElement>(".notes-toggle")!;
+
+    toggle.onclick = () => {
+      const isHidden = textarea.classList.contains("hidden");
+      textarea.classList.toggle("hidden");
+      preview.classList.toggle("hidden");
+      toggle.textContent = isHidden ? "Save Notes" : "Edit Notes";
+      if (isHidden) textarea.focus();
+    };
+
     textarea.onblur = () => {
-      const id = textarea.dataset.id!;
       const item = records.find((x) => x.id === id);
       if (item && item.notes !== textarea.value) {
         store.upsert({ ...item, notes: textarea.value, updatedAt: new Date().toISOString() });
       }
+    };
+
+    // Update preview and toggle text on save (triggered by blur usually, but let's ensure it here)
+    textarea.oninput = () => {
+      preview.textContent = textarea.value || "No notes...";
     };
   }
 
