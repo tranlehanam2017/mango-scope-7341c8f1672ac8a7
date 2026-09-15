@@ -238,6 +238,7 @@ function render(records: readonly LifeRecord[]): void {
           ${(["planned", "active", "done"] as ItemStatus[]).map((status) => `<option ${status === item.status ? "selected" : ""}>${status}</option>`).join("")}
         </select>
         <div class="record-btn-group">
+          ${!isDone ? `<button class="ghost" data-mark-done="${escapeHtl(item.id)}" aria-label="Mark ${escapeHtml(item.title)} as done">Done</button>` : ""}
           <button class="ghost" data-tomorrow="${escapeHtl(item.id)}" aria-label="Move ${escapeHtml(item.title)} to tomorrow">Tomorrow</button>
           <button class="ghost" data-duplicate="${escapeHtl(item.id)}" aria-label="Duplicate ${escapeHtml(item.title)}">Duplicate</button>
           <button class="danger ghost" data-remove="${escapeHtl(item.id)}" aria-label="Remove ${escapeHtml(item.title)}">Remove</button>
@@ -321,6 +322,12 @@ function render(records: readonly LifeRecord[]): void {
     if (record) {
       const tomorrow = new Date(Date.parse(`${record.dueDate}T00:00:00Z`) + 86_400_000).toISOString().slice(0, 10);
       store.upsert({ ...record, dueDate: tomorrow, updatedAt: new Date().toISOString() });
+    }
+  };
+  for (const button of document.querySelectorAll<HTMLButtonElement>("[data-mark-done]")) button.onclick = () => {
+    const record = records.find(r => r.id === button.dataset.markDone!);
+    if (record) {
+      store.upsert({ ...record, status: 'done', updatedAt: new Date().toISOString() });
     }
   };
   document.querySelector("#week")!.innerHTML = suggestDailyLoad(records, Number(capacity.value) || 90).map((day) => `<article class="day ${day.overloaded ? "over" : ""}">
