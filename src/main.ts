@@ -52,7 +52,7 @@ root.innerHTML = `
     <label class="file">Import JSON<input id="import" type="file" accept="application/json"></label>
     <button id="clear-all" class="ghost danger">Clear All</button></div></section>
   <section class="panel plan-panel"><div class="panel-title"><h2>Priority plan</h2><div class="filter-group"><input id="search" placeholder="Search records..."><select id="filter"><option value="all">All categories</option>
-    ${theme.categories.map((x) => `<option>${x}</option>`).join("")}</select><label class="checkbox-label"><input id="show-completed" type="checkbox"> Show done</label><label class="checkbox-label"><input id="active-only" type="checkbox"> Active only</label></div></div><div id="bulk-actions" class="bulk-actions"></div><div id="plan"></div></section></main>
+    ${theme.categories.map((x) => `<option>${x}</option>`).join("")}</select><label class="checkbox-label"><input id="show-completed" type="checkbox"> Show done</label><label class="checkbox-label"><input id="active-only" type="checkbox"> Active only</label><button id="clear-filters" class="ghost">Clear filters</button></div></div><div id="bulk-actions" class="bulk-actions"></div><div id="plan"></div></section></main>
   <section class="panel week-panel"><div class="panel-title"><h2>Seven-day load</h2><label>Daily capacity
     <input id="capacity" type="number" min="15" max="480" step="15" value="90"></label></div><div id="week" class="week"></div></section>
   <div id="undo-toast" class="undo-toast"></div>
@@ -147,6 +147,20 @@ document.querySelector("#clear-all")!.addEventListener("click", () => {
   const records = store.all();
   if (records.length === 0) return;
   if (confirm(`Warning: This will permanently delete all ${records.length} records from your local storage. Are you sure you want to proceed?`)) store.clear();
+});
+
+document.querySelector("#clear-filters")!.addEventListener("click", () => {
+  selectedCategory = "all";
+  searchQuery = "";
+  showCompleted = false;
+  activeOnly = false;
+  
+  (document.querySelector("#filter") as HTMLSelectElement).value = "all";
+  (document.querySelector("#search") as HTMLInputElement).value = "";
+  (document.querySelector("#show-completed") as HTMLInputElement).checked = false;
+  (document.querySelector("#active-only") as HTMLInputElement).checked = false;
+  
+  render(store.all());
 });
 
 // Keyboard shortcuts
