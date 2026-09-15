@@ -38,7 +38,12 @@ root.innerHTML = `
   <section id="summary" class="summary"></section>
   <main class="layout"><section class="panel"><div class="panel-title"><h2>Add ${theme.itemLabel.toLowerCase()}</h2><div class="panel-actions"><button id="seed-export" class="ghost">Export JSON</button><button id="clear-form" class="ghost">Clear Form</button></div></div><form id="record-form" novalidate>
     <label>Title<input name="title" maxlength="100" required></label>
-    <div class="form-grid"><label>Category<select name="category">${theme.categories.map((x) => `<option>${x}</option>`).join("")}</select></label>
+    <div class="form-grid"><label>Category
+      <div class="category-pills">
+        ${theme.categories.map(cat => `<button type="button" class="pill" data-cat="${cat}">${cat}</button>`).join('')}
+      </div>
+      <select name="category">${theme.categories.map((x) => `<option>${x}</option>`).join("")}</select>
+    </label>
     <label>${theme.dateLabel}<input name="dueDate" type="date" value="${localDay()}" required></label>
     <label>${theme.effortLabel}<input name="effort" type="number" min="1" max="480" value="30" required></label>
     <label>${theme.impactLabel}<input name="impact" type="number" min="1" max="5" value="3" required></label></div>
@@ -92,6 +97,16 @@ form.addEventListener("submit", (event) => {
   if (complaints.length) { errors.textContent = complaints.join(" "); return; }
   errors.textContent = ""; store.upsert(item); form.reset();
   (form.elements.namedItem("dueDate") as HTMLInputElement).value = localDay();
+});
+
+// Quick-category buttons
+form.addEventListener("click", (event) => {
+  const target = event.target as HTMLElement;
+  if (target.classList.contains("pill")) {
+    const category = target.dataset.cat;
+    const select = form.elements.namedItem("category") as HTMLSelectElement;
+    if (category) select.value = category;
+  }
 });
 
 document.querySelector("#clear-form")!.addEventListener("click", () => {
