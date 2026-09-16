@@ -53,7 +53,7 @@ root.innerHTML = `
     <button type="submit">Add to plan</button></form><div class="exchange"><button id="csv" class="ghost">Export CSV</button>
     <label class="file">Import JSON<input id="import" type="file" accept="application/json"></label>
     <button id="clear-all" class="ghost danger">Clear All</button></div></section>
-  <section class="panel plan-panel"><div class="panel-title"><h2>Priority plan</h2><div class="filter-group"><input id="search" placeholder="Search records..."><select id="filter"><option value="all">All categories</option>
+  <section class="panel plan-panel"><div class="panel-title"><h2>Priority plan</h2><div class="filter-group"><div class="search-wrap"><input id="search" placeholder="Search records..."><button id="clear-search" class="ghost search-clear">×</button></div><select id="filter"><option value="all">All categories</option>
     ${theme.categories.map((x) => `<option>${x}</option>`).join("")}</select><label class="checkbox-label"><input id="show-completed" type="checkbox"> Show done</label><label class="checkbox-label"><input id="active-only" type="checkbox"> Active only</label><label class="checkbox-label"><input id="show-archived" type="checkbox"> Show archived</label><button id="clear-filters" class="ghost">Clear filters</button></div></div><div id="bulk-actions" class="bulk-actions"></div><div id="plan"></div></section></main>
   <section class="panel week-panel"><div class="panel-title"><h2>Seven-day load</h2><label>Daily capacity
     <input id="capacity" type="number" min="15" max="480" step="15" value="90"></label></div><div id="week" class="week"></div></section>
@@ -131,6 +131,14 @@ document.querySelector<HTMLSelectElement>("#filter")!.addEventListener("change",
 document.querySelector<HTMLInputElement>("#search")!.addEventListener("input", (event) => {
   searchQuery = (event.target as HTMLInputElement).value.toLowerCase().trim();
   render(store.all());
+});
+
+document.querySelector<HTMLButtonElement>("#clear-search")!.addEventListener("click", () => {
+  const searchInput = document.querySelector<HTMLInputElement>("#search")!;
+  searchInput.value = "";
+  searchQuery = "";
+  render(store.all());
+  searchInput.focus();
 });
 
 document.querySelector<HTMLInputElement>("#show-completed")!.addEventListener("change", (event) => {
