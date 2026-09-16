@@ -23,6 +23,7 @@ let activeOnly = false;
 
 // Undo state
 let lastDeletedRecord: LifeRecord | null = null;
+let lastEditedRecord: LifeRecord | null = null;
 let undoTimeout: number | null = null;
 
 const HTML_ENTITIES: Readonly<Record<string, string>> = {
@@ -63,23 +64,29 @@ const errors = document.querySelector<HTMLParagraphElement>("#errors")!;
 const capacity = document.querySelector<HTMLInputElement>("#capacity")!;
 const undoToast = document.querySelector<HTMLDivElement>("#undo-toast")!;
 
-function showUndo(record: LifeRecord) {
-  lastDeletedRecord = record;
-  undoToast.innerHTML = `<span>Deleted "${escapeHtml(record.title)}"</span><button id="undo-btn">Undo</button>`;
+function showUndo(record: LifeRecord, type: 'deleted' | 'edited') {
+  if (type === 'deleted') lastDeletedRecord = record;
+  else lastEditedRecord = record;
+
+  undoToast.innerHTML = `<span>${type === 'deleted' ? 'Deleted' : 'Updated'} "${escapeHtml(record.title)}"</span><button id="undo-btn">Undo</button>`;
   undoToast.classList.add("visible");
   
   if (undoTimeout) clearTimeout(undoTimeout);
   undoTimeout = window.setTimeout(() => {
     undoToast.classList.remove("visible");
     lastDeletedRecord = null;
+    lastEditedRecord = null;
   }, 8000);
 
   document.querySelector("#undo-btn")!.onclick = () => {
-    if (lastDeletedRecord) {
+    if (type === 'deleted' && lastDeletedRecord) {
       store.upsert(lastDeletedRecord);
-      undoToast.classList.remove("visible");
-      lastDeletedRecord = null;
+    } else if (type === 'edited' && lastEditedRecord) {
+      store.upsert(lastEditedRecord);
     }
+    undoToast.classList.remove("visible");
+    lastDeletedRecord = null;
+    lastEditedRecord = null;
   };
 }
 
@@ -283,6 +290,7 @@ function render(records: readonly LifeRecord[]): void {
     textarea.onblur = () => {
       const item = records.find((x) => x.id === id);
       if (item && item.notes !== textarea.value) {
+        showUndo({ ...item }, 'edited');
         store.upsert({ ...item, notes: textarea.value, updatedAt: new Date().toISOString() });
       }
     };
@@ -301,18 +309,30 @@ function render(records: readonly LifeRecord[]): void {
       
       if (input.classList.contains("edit-title")) {
         const trimmed = val.trim();
-        if (trimmed.length > 0 && item.title !== trimmed) store.upsert({ ...item, title: trimmed, updatedAt: new Date().toISOString() });
+        if (trimmed.length > 0 && item.title !== trimmed) {
+          showUndo({ ...item }, 'edited');
+          store.upsert({ ...item, title: trimmed, updatedAt: new Date().toISOString() });
+        }
         else if (trimmed.length === 0) input.value = item.title;
       } else if (input.classList.contains("edit-effort")) {
         const num = parseInt(val, 10);
-        if (!Number.isNaN(num) && num >= 1 && num <= 480) store.upsert({ ...item, effort: num, updatedAt: new Date().toISOString() });
+        if (!Number.isNaN(num) && num >= 1 && num <= 480) {
+          showUndo({ ...item }, 'edited');
+          store.upsert({ ...item, effort: num, updatedAt: new Date().toISOString() });
+        }
         else input.value = item.effort.toString();
       } else if (input.classList.contains("edit-impact")) {
         const num = parseInt(val, 10);
-        if (!Number.isNaN(num) && num >= 1 && num <= 5) store.upsert({ ...item, impact: num, updatedAt: new Date().toISOString() });
+        if (!Number.isNaN(num) && num >= 1 && num <= 5) {
+          showUndo({ ...item }, 'edited');
+          store.upsert({ ...item, impact: num, updatedAt: new Date().toISOString() });
+        }
         else input.value = item.impact.toString();
       } else if (input.classList.contains("edit-date")) {
-        if (val && item.dueDate !== val) store.upsert({ ...item, dueDate: val, updatedAt: new Date().toISOString() });
+        if (val && item.dueDate !== val) {
+          showUndo({ ...item }, 'edited');
+          store.upsert({ ...item, dueDate: val, updatedAt: new Date().toISOString() });
+        }
         else if (!val) input.value = item.dueDate;
       }
     };
@@ -323,6 +343,7 @@ function render(records: readonly LifeRecord[]): void {
       const id = select.dataset.id!;
       const item = records.find((x) => x.id === id);
       if (item && item.category !== select.value) {
+        showUndo({ ...item }, 'edited');
         store.upsert({ ...item, category: select.value, updatedAt: new Date().toISOString() });
       }
     };
@@ -331,12 +352,13 @@ function render(records: readonly LifeRecord[]): void {
   for (const select of document.querySelectorAll<HTMLSelectElement>("[data-status]")) select.onchange = () => {
     const item = records.find((x) => x.id === select.dataset.status);
     if (!item) return;
+    showUndo({ ...item }, 'edited');
     store.upsert({ ...item, status: select.value as ItemStatus, updatedAt: new Date().toISOString() });
   };
   for (const button of document.querySelectorAll<HTMLButtonElement>("[data-remove]")) button.onclick = () => {
     const record = records.find(r => r.id === button.dataset.remove!);
     if (record && confirm(`Remove "${escapeHtml(record.title)}"?`)) {
-      showUndo(record);
+      showUndo(record, 'deleted');
       store.remove(record.id);
     }
   };
@@ -357,18 +379,21 @@ function render(records: readonly LifeRecord[]): void {
     const record = records.find(r => r.id === button.dataset.tomorrow!);
     if (record) {
       const tomorrow = new Date(Date.parse(`${record.dueDate}T00:00:00Z`) + 86_400_000).toISOString().slice(0, 10);
+      showUndo({ ...record }, 'edited');
       store.upsert({ ...record, dueDate: tomorrow, updatedAt: new Date().toISOString() });
     }
   };
   for (const button of document.querySelectorAll<HTMLButtonElement>("[data-today]")) button.onclick = () => {
     const record = records.find(r => r.id === button.dataset.today!);
     if (record) {
+      showUndo({ ...record }, 'edited');
       store.upsert({ ...record, dueDate: localDay(), updatedAt: new Date().toISOString() });
     }
   };
   for (const button of document.querySelectorAll<HTMLButtonElement>("[data-mark-done]")) button.onclick = () => {
     const record = records.find(r => r.id === button.dataset.markDone!);
     if (record) {
+      showUndo({ ...record }, 'edited');
       store.upsert({ ...record, status: 'done', updatedAt: new Date().toISOString() });
     }
   };
