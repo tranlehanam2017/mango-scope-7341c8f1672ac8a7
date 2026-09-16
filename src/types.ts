@@ -1,4 +1,4 @@
-export type ItemStatus = "planned" | "active" | "done";
+export type ItemStatus = "planned" | "active" | "done" | "archived";
 
 export interface LifeRecord {
   id: string;

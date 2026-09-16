@@ -31,6 +31,7 @@ label { display: grid; gap: .35rem; color: #526b64; font-size: .82rem; font-weig
 .checkbox-label { display: flex; align-items: center; gap: .4rem; cursor: pointer; white-space: nowrap; }
 .checkbox-label input { width: auto; }
 .record.done { opacity: 0.7; background: #f8faf9; filter: grayscale(0.4); }
+.record.archived { opacity: 0.6; background: #f0f0f0; filter: grayscale(0.8); }
 .record.active { border-left: 4px solid #176b55; padding-left: 1rem; background: linear-gradient(to right, #f0f7f4, transparent); }
 .bulk-actions { display: flex; gap: .5rem; margin-bottom: 1rem; }
 .edit-title { border: 0; background: transparent; font-size: 1.1rem; font-weight: 700; padding: 0; color: inherit; width: auto; flex: 1; }

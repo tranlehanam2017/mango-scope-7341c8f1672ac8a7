@@ -4,7 +4,7 @@ export function exportJson(records: readonly LifeRecord[]): string {
   return JSON.stringify({ schema: 1, exportedAt: new Date().toISOString(), records }, null, 2);
 }
 
-const STATUSES: readonly ItemStatus[] = ["planned", "active", "done"];
+const STATUSES: readonly ItemStatus[] = ["planned", "active", "done", "archived"];
 
 function isCalendarDay(value: unknown): value is string {
   if (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;

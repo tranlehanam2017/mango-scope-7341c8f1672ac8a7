@@ -48,7 +48,7 @@ export function priorityFor(item: LifeRecord, today = localDay()): PlanEntry {
     score += 8;
     reasons.push("already in progress");
   }
-  if (item.status === "done") score = -1;
+  if (item.status === "done" || item.status === "archived") score = -1;
   if (reasons.length === 0) reasons.push("ranked by impact and effort");
   return { item, score: Math.round(score * 10) / 10, reasons, daysUntilDue };
 }
@@ -56,18 +56,18 @@ export function priorityFor(item: LifeRecord, today = localDay()): PlanEntry {
 export function buildPlan(items: readonly LifeRecord[], today = localDay()): PlanEntry[] {
   return items
     .map((item) => priorityFor(item, today))
-    .filter((entry) => entry.item.status !== "done")
+    .filter((entry) => entry.item.status !== "done" && entry.item.status !== "archived")
     .sort((a, b) => b.score - a.score || a.item.dueDate.localeCompare(b.item.dueDate));
 }
 
 export function summarize(items: readonly LifeRecord[], today = localDay()): PlanSummary {
   return items.reduce<PlanSummary>((summary, item) => {
     summary.total += 1;
-    summary.effort += item.status === "done" ? 0 : item.effort;
-    summary.completed += item.status === "done" ? 1 : 0;
+    summary.effort += (item.status === "done" || item.status === "archived") ? 0 : item.effort;
+    summary.completed += (item.status === "done" || item.status === "archived") ? 1 : 0;
     const days = daysBetween(today, item.dueDate);
-    summary.overdue += item.status !== "done" && days < 0 ? 1 : 0;
-    summary.dueSoon += item.status !== "done" && days >= 0 && days <= 7 ? 1 : 0;
+    summary.overdue += (item.status !== "done" && item.status !== "archived") && days < 0 ? 1 : 0;
+    summary.dueSoon += (item.status !== "done" && item.status !== "archived") && days >= 0 && days <= 7 ? 1 : 0;
     summary.byCategory[item.category] = (summary.byCategory[item.category] ?? 0) + 1;
     return summary;
   }, { total: 0, completed: 0, overdue: 0, dueSoon: 0, effort: 0, byCategory: {} });

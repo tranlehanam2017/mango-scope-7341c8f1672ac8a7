@@ -20,6 +20,7 @@ let selectedCategory = "all";
 let searchQuery = "";
 let showCompleted = false;
 let activeOnly = false;
+let showArchived = false;
 
 // Undo state
 let lastDeletedRecord: LifeRecord | null = null;
@@ -53,7 +54,7 @@ root.innerHTML = `
     <label class="file">Import JSON<input id="import" type="file" accept="application/json"></label>
     <button id="clear-all" class="ghost danger">Clear All</button></div></section>
   <section class="panel plan-panel"><div class="panel-title"><h2>Priority plan</h2><div class="filter-group"><input id="search" placeholder="Search records..."><select id="filter"><option value="all">All categories</option>
-    ${theme.categories.map((x) => `<option>${x}</option>`).join("")}</select><label class="checkbox-label"><input id="show-completed" type="checkbox"> Show done</label><label class="checkbox-label"><input id="active-only" type="checkbox"> Active only</label><button id="clear-filters" class="ghost">Clear filters</button></div></div><div id="bulk-actions" class="bulk-actions"></div><div id="plan"></div></section></main>
+    ${theme.categories.map((x) => `<option>${x}</option>`).join("")}</select><label class="checkbox-label"><input id="show-completed" type="checkbox"> Show done</label><label class="checkbox-label"><input id="active-only" type="checkbox"> Active only</label><label class="checkbox-label"><input id="show-archived" type="checkbox"> Show archived</label><button id="clear-filters" class="ghost">Clear filters</button></div></div><div id="bulk-actions" class="bulk-actions"></div><div id="plan"></div></section></main>
   <section class="panel week-panel"><div class="panel-title"><h2>Seven-day load</h2><label>Daily capacity
     <input id="capacity" type="number" min="15" max="480" step="15" value="90"></label></div><div id="week" class="week"></div></section>
   <div id="undo-toast" class="undo-toast"></div>
@@ -142,6 +143,11 @@ document.querySelector<HTMLInputElement>("#active-only")!.addEventListener("chan
   render(store.all());
 });
 
+document.querySelector<HTMLInputElement>("#show-archived")!.addEventListener("change", (event) => {
+  showArchived = (event.target as HTMLInputElement).checked;
+  render(store.all());
+});
+
 capacity.addEventListener("input", () => render(store.all()));
 document.querySelector("#seed-export")!.addEventListener("click", () => download("records.json", exportJson(store.all()), "application/json"));
 document.querySelector("#csv")!.addEventListener("click", () => download("records.csv", exportCsv(store.all()), "text/csv"));
@@ -161,11 +167,13 @@ document.querySelector("#clear-filters")!.addEventListener("click", () => {
   searchQuery = "";
   showCompleted = false;
   activeOnly = false;
+  showArchived = false;
   
   (document.querySelector("#filter") as HTMLSelectElement).value = "all";
   (document.querySelector("#search") as HTMLInputElement).value = "";
   (document.querySelector("#show-completed") as HTMLInputElement).checked = false;
   (document.querySelector("#active-only") as HTMLInputElement).checked = false;
+  (document.querySelector("#show-archived") as HTMLInputElement).checked = false;
   
   render(store.all());
 });
@@ -196,6 +204,7 @@ function render(records: readonly LifeRecord[]): void {
   });
 
   const filtered = allRecords.filter((item) => {
+    if (item.status === 'archived' && !showArchived) return false;
     if (!showCompleted && item.status === "done") return false;
     if (activeOnly && item.status !== "active") return false;
     const matchesCategory = selectedCategory === "all" || item.category === selectedCategory;
@@ -210,13 +219,13 @@ function render(records: readonly LifeRecord[]): void {
   bulkDiv.innerHTML = '';
   if (doneCount > 0) {
     const btn = document.createElement('button');
-    btn.className = 'ghost danger';
-    btn.textContent = `Clear ${doneCount} completed`;
+    btn.className = 'ghost';
+    btn.textContent = `Archive ${doneCount} completed`;
     btn.onclick = () => {
-      if (confirm(`Delete ${doneCount} completed records?`)) {
-        const remaining = records.filter(r => r.status !== 'done');
-        store.replace(remaining);
-      }
+      const now = new Date().toISOString();
+      records.filter(r => r.status === 'done').forEach(r => {
+        store.upsert({ ...r, status: 'archived', updatedAt: now });
+      });
     };
     bulkDiv.appendChild(btn);
   }
@@ -236,16 +245,17 @@ function render(records: readonly LifeRecord[]): void {
   document.querySelector("#plan")!.innerHTML = filtered.length ? filtered.map((item) => {
     const entry = priorityFor(item);
     const isDone = item.status === "done";
+    const isArchived = item.status === "archived";
     const isActive = item.status === "active";
     const scoreClass = entry.score > 100 ? "score-high" : entry.score > 60 ? "score-med" : "score-low";
-    return `<article class="record ${isDone ? "done" : ""} ${isActive ? "active" : ""}">
+    return `<article class="record ${isDone ? "done" : ""} ${isArchived ? "archived" : ""} ${isActive ? "active" : ""}">
       <div class="record-main">
         <span class="badge">
           <select class="edit-category" data-id="${escapeHtl(item.id)}">
             ${theme.categories.map(cat => `<option ${cat === item.category ? 'selected' : ''}>${cat}</option>`).join('')}
           </select>
         </span>
-        <input class="edit-title" data-id="${escapeHtl(item.id)}" value="${escapeHtml(item.title)}" maxlength="100" style="${isDone ? "text-decoration: line-through; opacity: 0.6" : ""}">
+        <input class="edit-title" data-id="${escapeHtl(item.id)}" value="${escapeHtml(item.title)}" maxlength="100" style="${(isDone || isArchived) ? "text-decoration: line-through; opacity: 0.6" : ""}">
         <p>${escapeHtml(entry.reasons.join("; "))}</p>
         <div class="record-edit-grid">
           <label>${theme.dateLabel}<input type="date" class="edit-date" data-id="${escapeHtl(item.id)}" value="${item.dueDate}"></label>
@@ -259,12 +269,12 @@ function render(records: readonly LifeRecord[]): void {
         </div>
       </div>
       <div class="record-actions">
-        <div class="score-wrap"><strong class="${scoreClass}" style="${isDone ? "opacity: 0.5" : ""}">${entry.score}</strong></div>
+        <div class="score-wrap"><strong class="${scoreClass}" style="${(isDone || isArchived) ? "opacity: 0.5" : ""}">${entry.score}</strong></div>
         <select data-status="${escapeHtml(item.id)}">
-          ${(["planned", "active", "done"] as ItemStatus[]).map((status) => `<option ${status === item.status ? "selected" : ""}>${status}</option>`).join("")}
+          ${(["planned", "active", "done", "archived"] as ItemStatus[]).map((status) => `<option ${status === item.status ? "selected" : ""}>${status}</option>`).join("")}
         </select>
         <div class="record-btn-group">
-          ${!isDone ? `<button class="ghost" data-mark-done="${escapeHtl(item.id)}" aria-label="Mark ${escapeHtml(item.title)} as done">Done</button>` : ""}
+          ${!isDone && !isArchived ? `<button class="ghost" data-mark-done="${escapeHtl(item.id)}" aria-label="Mark ${escapeHtml(item.title)} as done">Done</button>` : ""}
           <button class="ghost" data-today="${escapeHtl(item.id)}" aria-label="Move ${escapeHtml(item.title)} to today">Today</button>
           <button class="ghost" data-tomorrow="${escapeHtl(item.id)}" aria-label="Move ${escapeHtml(item.title)} to tomorrow">Tomorrow</button>
           <button class="ghost" data-duplicate="${escapeHtl(item.id)}" aria-label="Duplicate ${escapeHtml(item.title)}">Duplicate</button>
