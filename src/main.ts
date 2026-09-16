@@ -285,7 +285,6 @@ function render(records: readonly LifeRecord[]): void {
       }
     };
 
-    // Update preview and toggle text on save (triggered by blur usually, but let's ensure it here)
     textarea.oninput = () => {
       preview.textContent = textarea.value || "No notes...";
     };
