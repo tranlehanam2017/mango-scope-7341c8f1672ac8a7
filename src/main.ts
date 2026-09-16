@@ -229,8 +229,9 @@ function render(records: readonly LifeRecord[]): void {
   document.querySelector("#plan")!.innerHTML = filtered.length ? filtered.map((item) => {
     const entry = priorityFor(item);
     const isDone = item.status === "done";
+    const isActive = item.status === "active";
     const scoreClass = entry.score > 100 ? "score-high" : entry.score > 60 ? "score-med" : "score-low";
-    return `<article class="record ${isDone ? "done" : ""}">
+    return `<article class="record ${isDone ? "done" : ""} ${isActive ? "active" : ""}">
       <div class="record-main">
         <span class="badge">
           <select class="edit-category" data-id="${escapeHtl(item.id)}">
@@ -257,6 +258,7 @@ function render(records: readonly LifeRecord[]): void {
         </select>
         <div class="record-btn-group">
           ${!isDone ? `<button class="ghost" data-mark-done="${escapeHtl(item.id)}" aria-label="Mark ${escapeHtml(item.title)} as done">Done</button>` : ""}
+          <button class="ghost" data-today="${escapeHtl(item.id)}" aria-label="Move ${escapeHtml(item.title)} to today">Today</button>
           <button class="ghost" data-tomorrow="${escapeHtl(item.id)}" aria-label="Move ${escapeHtml(item.title)} to tomorrow">Tomorrow</button>
           <button class="ghost" data-duplicate="${escapeHtl(item.id)}" aria-label="Duplicate ${escapeHtml(item.title)}">Duplicate</button>
           <button class="danger ghost" data-remove="${escapeHtl(item.id)}" aria-label="Remove ${escapeHtml(item.title)}">Remove</button>
@@ -356,6 +358,12 @@ function render(records: readonly LifeRecord[]): void {
     if (record) {
       const tomorrow = new Date(Date.parse(`${record.dueDate}T00:00:00Z`) + 86_400_000).toISOString().slice(0, 10);
       store.upsert({ ...record, dueDate: tomorrow, updatedAt: new Date().toISOString() });
+    }
+  };
+  for (const button of document.querySelectorAll<HTMLButtonElement>("[data-today]")) button.onclick = () => {
+    const record = records.find(r => r.id === button.dataset.today!);
+    if (record) {
+      store.upsert({ ...record, dueDate: localDay(), updatedAt: new Date().toISOString() });
     }
   };
   for (const button of document.querySelectorAll<HTMLButtonElement>("[data-mark-done]")) button.onclick = () => {
