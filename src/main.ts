@@ -248,6 +248,17 @@ function render(records: readonly LifeRecord[]): void {
       });
     };
     bulkDiv.appendChild(btn);
+    
+    const remBtn = document.createElement('button');
+    remBtn.className = 'ghost danger';
+    remBtn.textContent = `Remove ${selectedCategory}`;
+    remBtn.onclick = () => {
+      const toRemove = records.filter(r => r.category === selectedCategory);
+      if (toRemove.length > 0 && confirm(`Permanently remove all ${toRemove.length} records in ${selectedCategory}?`)) {
+        toRemove.forEach(r => store.remove(r.id));
+      }
+    };
+    bulkDiv.appendChild(remBtn);
   }
 
   document.querySelector("#plan")!.innerHTML = filtered.length ? filtered.map((item) => {
