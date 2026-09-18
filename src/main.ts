@@ -201,9 +201,15 @@ window.addEventListener("keydown", (event) => {
 function render(records: readonly LifeRecord[]): void {
   const summary = summarize(records);
   document.querySelector("#summary")!.innerHTML = [
-    ["Open", summary.total - summary.completed], ["Due soon", summary.dueSoon],
-    ["Overdue", summary.overdue], [theme.effortLabel, summary.effort],
-  ].map(([label, value]) => `<article><span>${label}</span><strong>${value}</strong></article>`).join("");
+    ["Open", summary.total - summary.completed],
+    ["Due soon", summary.dueSoon],
+    ["Overdue", summary.overdue],
+    [theme.effortLabel, summary.effort],
+    ...theme.categories.map(cat => [`${cat}`, summary.byCategory[cat] || 0])
+  ].map(([label, value]) => {
+    const color = theme.categoryColors[label] || 'inherit';
+    return `<article style="border-left: 4px solid ${color}"><span>${label}</span><strong style="color: ${color === 'inherit' ? 'inherit' : color}">${value}</strong></article>`;
+  }).join("");
   
   const allRecords = [...records].sort((a, b) => {
     const aEntry = priorityFor(a);
@@ -267,10 +273,11 @@ function render(records: readonly LifeRecord[]): void {
     const isArchived = item.status === "archived";
     const isActive = item.status === "active";
     const scoreClass = entry.score > 100 ? "score-high" : entry.score > 60 ? "score-med" : "score-low";
+    const catColor = theme.categoryColors[item.category] || '#176b55';
     return `<article class="record ${isDone ? "done" : ""} ${isArchived ? "archived" : ""} ${isActive ? "active" : ""}">
       <div class="record-main">
-        <span class="badge">
-          <select class="edit-category" data-id="${escapeHtl(item.id)}">
+        <span class="badge" style="background: ${catColor}20; color: ${catColor}">
+          <select class="edit-category" data-id="${escapeHtl(item.id)}" style="color: inherit">
             ${theme.categories.map(cat => `<option ${cat === item.category ? 'selected' : ''}>${cat}</option>`).join('')}
           </select>
         </span>

@@ -15,6 +15,13 @@ export const theme = {
     "Outreach",
     "Logistics"
   ],
+  "categoryColors": {
+    "Food": "#e67e22",
+    "Education": "#3498db",
+    "Environment": "#2ecc71",
+    "Outreach": "#9b59b6",
+    "Logistics": "#95a5a6"
+  },
   "seeds": [
     [
       "Sort pantry donations",

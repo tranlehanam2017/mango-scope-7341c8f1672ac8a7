@@ -22,6 +22,7 @@ export interface ThemeConfig {
   readonly effortLabel: string;
   readonly impactLabel: string;
   readonly categories: readonly string[];
+  readonly categoryColors: Readonly<Record<string, string>>;
   readonly seeds: readonly (readonly [string, string, number, number])[];
 }
 
