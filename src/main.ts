@@ -272,9 +272,10 @@ function render(records: readonly LifeRecord[]): void {
     const isDone = item.status === "done";
     const isArchived = item.status === "archived";
     const isActive = item.status === "active";
+    const isOverdue = entry.daysUntilDue < 0 && !isDone && !isArchived;
     const scoreClass = entry.score > 100 ? "score-high" : entry.score > 60 ? "score-med" : "score-low";
     const catColor = theme.categoryColors[item.category] || '#176b55';
-    return `<article class="record ${isDone ? "done" : ""} ${isArchived ? "archived" : ""} ${isActive ? "active" : ""}">
+    return `<article class="record ${isDone ? "done" : ""} ${isArchived ? "archived" : ""} ${isActive ? "active" : ""} ${isOverdue ? "overdue" : ""}">
       <div class="record-main">
         <span class="badge" style="background: ${catColor}20; color: ${catColor}">
           <select class="edit-category" data-id="${escapeHtl(item.id)}" style="color: inherit">
@@ -315,6 +316,7 @@ function render(records: readonly LifeRecord[]): void {
           ${!isDone && !isArchived ? `<button class="ghost" data-mark-done="${escapeHtl(item.id)}" aria-label="Mark ${escapeHtml(item.title)} as done">Done</button>` : ""}
           <button class="ghost" data-today="${escapeHtl(item.id)}" aria-label="Move ${escapeHtml(item.title)} to today">Today</button>
           <button class="ghost" data-tomorrow="${escapeHtl(item.id)}" aria-label="Move ${escapeHtml(item.title)} to tomorrow">Tomorrow</button>
+          <button class="ghost" data-next-week="${escapeHtl(item.id)}" aria-label="Move ${escapeHtml(item.title)} to next week">Next Week</button>
           <button class="ghost" data-duplicate="${escapeHtl(item.id)}" aria-label="Duplicate ${escapeHtml(item.title)}">Duplicate</button>
           <button class="danger ghost" data-remove="${escapeHtl(item.id)}" aria-label="Remove ${escapeHtml(item.title)}">Remove</button>
         </div>
@@ -457,6 +459,14 @@ function render(records: readonly LifeRecord[]): void {
     if (record) {
       showUndo({ ...record }, 'edited');
       store.upsert({ ...record, dueDate: localDay(), updatedAt: new Date().toISOString() });
+    }
+  };
+  for (const button of document.querySelectorAll<HTMLButtonElement>("[data-next-week]")) button.onclick = () => {
+    const record = records.find(r => r.id === button.dataset.nextWeek!);
+    if (record) {
+      const nextWeek = new Date(Date.parse(`${record.dueDate}T00:00:00Z`) + 7 * 86_400_000).toISOString().slice(0, 10);
+      showUndo({ ...record }, 'edited');
+      store.upsert({ ...record, dueDate: nextWeek, updatedAt: new Date().toISOString() });
     }
   };
   for (const button of document.querySelectorAll<HTMLButtonElement>("[data-mark-done]")) button.onclick = () => {
