@@ -278,8 +278,20 @@ function render(records: readonly LifeRecord[]): void {
         <p>${escapeHtml(entry.reasons.join("; "))}</p>
         <div class="record-edit-grid">
           <label>${theme.dateLabel}<input type="date" class="edit-date" data-id="${escapeHtl(item.id)}" value="${item.dueDate}"></label>
-          <label>${theme.effortLabel}<input type="number" class="edit-effort" data-id="${escapeHtl(item.id)}" value="${item.effort}" min="1" max="480"></label>
-          <label>${theme.impactLabel}<input type="number" class="edit-impact" data-id="${escapeHtl(item.id)}" value="${item.impact}" min="1" max="5"></label>
+          <label>${theme.effortLabel}
+            <div class="adjust-wrap">
+              <button class="adjust-btn" data-id="${escapeHtl(item.id)}" data-field="effort" data-delta="-15">-</button>
+              <input type="number" class="edit-effort" data-id="${escapeHtl(item.id)}" value="${item.effort}" min="1" max="480">
+              <button class="adjust-btn" data-id="${escapeHtl(item.id)}" data-field="effort" data-delta="15">+</button>
+            </div>
+          </label>
+          <label>${theme.impactLabel}
+            <div class="adjust-wrap">
+              <button class="adjust-btn" data-id="${escapeHtl(item.id)}" data-field="impact" data-delta="-1">-</button>
+              <input type="number" class="edit-impact" data-id="${escapeHtl(item.id)}" value="${item.impact}" min="1" max="5">
+              <button class="adjust-btn" data-id="${escapeHtl(item.id)}" data-field="impact" data-delta="1">+</button>
+            </div>
+          </label>
         </div>
         <div class="record-notes-container" data-id="${escapeHtl(item.id)}">
           <div class="notes-preview">${item.notes ? escapeHtml(item.notes) : '<span class="placeholder">No notes...</span>'}</div>
@@ -363,6 +375,27 @@ function render(records: readonly LifeRecord[]): void {
           store.upsert({ ...item, dueDate: val, updatedAt: new Date().toISOString() });
         }
         else if (!val) input.value = item.dueDate;
+      }
+    };
+  }
+
+  for (const btn of document.querySelectorAll<HTMLButtonElement>(".adjust-btn")) {
+    btn.onclick = () => {
+      const id = btn.dataset.id!;
+      const field = btn.dataset.field! as 'effort' | 'impact';
+      const delta = parseInt(btn.dataset.delta!, 10);
+      const item = records.find(r => r.id === id);
+      if (!item) return;
+
+      const currentVal = item[field];
+      let newVal = currentVal + delta;
+      
+      if (field === 'effort') newVal = Math.max(1, Math.min(480, newVal));
+      else newVal = Math.max(1, Math.min(5, newVal));
+
+      if (newVal !== currentVal) {
+        showUndo({ ...item }, 'edited');
+        store.upsert({ ...item, [field]: newVal, updatedAt: new Date().toISOString() });
       }
     };
   }
