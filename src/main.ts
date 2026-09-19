@@ -213,11 +213,11 @@ function render(records: readonly LifeRecord[]): void {
   document.querySelector("#summary")!.innerHTML = [
     ["Open", summary.total - summary.completed],
     ["Due soon", summary.dueSoon],
-    ["Overdue", summary.overdue],
+    ["Overdue", summary.overdue, "danger"],
     [theme.effortLabel, summary.effort],
     ...theme.categories.map(cat => [`${cat}`, summary.byCategory[cat] || 0])
-  ].map(([label, value]) => {
-    const color = theme.categoryColors[label] || 'inherit';
+  ].map(([label, value, status]) => {
+    const color = status === "danger" ? "#a33232" : (theme.categoryColors[label] || 'inherit');
     return `<article style="border-left: 4px solid ${color}"><span>${label}</span><strong style="color: ${color === 'inherit' ? 'inherit' : color}">${value}</strong></article>`;
   }).join("");
   
