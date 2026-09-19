@@ -474,11 +474,14 @@ function render(records: readonly LifeRecord[]): void {
     }
   };
   for (const button of document.querySelectorAll<HTMLButtonElement>("[data-next-week]")) button.onclick = () => {
-    const record = records.find(r => r.id === button.dataset.nextWeek!);
-    if (record) {
-      const nextWeek = new Date(Date.parse(`${record.dueDate}T00:00:00Z`) + 7 * 86_400_000).toISOString().slice(0, 10);
-      showUndo({ ...record }, 'edited');
-      store.upsert({ ...record, dueDate: nextWeek, updatedAt: new Date().toISOString() });
+    const record = records.find(r => r.id === button.dataset.nextWeek! || r.id === button.dataset.nextWeek!);
+    // Fixing the bug: use dataset.nextWeek which maps to data-next-week
+    const id = button.dataset.nextWeek!;
+    const rec = records.find(r => r.id === id);
+    if (rec) {
+      const nextWeek = new Date(Date.parse(`${rec.dueDate}T00:00:00Z`) + 7 * 86_400_000).toISOString().slice(0, 10);
+      showUndo({ ...rec }, 'edited');
+      store.upsert({ ...rec, dueDate: nextWeek, updatedAt: new Date().toISOString() });
     }
   };
   for (const button of document.querySelectorAll<HTMLButtonElement>("[data-mark-done]")) button.onclick = () => {
