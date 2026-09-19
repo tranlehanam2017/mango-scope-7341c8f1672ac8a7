@@ -275,6 +275,7 @@ function render(records: readonly LifeRecord[]): void {
     const isOverdue = entry.daysUntilDue < 0 && !isDone && !isArchived;
     const scoreClass = entry.score > 100 ? "score-high" : entry.score > 60 ? "score-med" : "score-low";
     const catColor = theme.categoryColors[item.category] || '#176b55';
+    const lastMod = new Date(item.updatedAt).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
     return `<article class="record ${isDone ? "done" : ""} ${isArchived ? "archived" : ""} ${isActive ? "active" : ""} ${isOverdue ? "overdue" : ""}">
       <div class="record-main">
         <span class="badge" style="background: ${catColor}20; color: ${catColor}">
@@ -306,6 +307,7 @@ function render(records: readonly LifeRecord[]): void {
           <textarea class="record-notes hidden" placeholder="Add notes...">${escapeHtml(item.notes)}</textarea>
           <button class="ghost notes-toggle">Edit Notes</button>
         </div>
+        <div class="record-footer"><small>Modified: ${lastMod}</small></div>
       </div>
       <div class="record-actions">
         <div class="score-wrap"><strong class="${scoreClass}" style="${(isDone || isArchived) ? "opacity: 0.5" : ""}">${entry.score}</strong></div>
