@@ -47,7 +47,11 @@ root.innerHTML = `
       <select name="category">${theme.categories.map((x) => `<option>${x}</option>`).join("")}</select>
     </label>
     <label>${theme.dateLabel}<input name="dueDate" type="date" value="${localDay()}" required></label>
-    <label>${theme.effortLabel}<input name="effort" type="number" min="1" max="480" value="30" required></label>
+    <label>${theme.effortLabel}
+      <div class="effort-presets">
+        ${[15, 30, 60, 120].map(m => `<button type="button" class="preset-btn" data-mins="${m}">${m}m</button>`).join('')}
+      </div>
+      <input name="effort" type="number" min="1" max="480" value="30" required></label>
     <label>${theme.impactLabel}<input name="impact" type="number" min="1" max="5" value="3" required></label></div>
     <label>Notes<textarea name="notes" rows="3" maxlength="600"></textarea></label><p id="errors" class="errors"></p>
     <button type="submit">Add to plan</button></form><div class="exchange"><button id="csv" class="ghost">Export CSV</button>
@@ -105,15 +109,21 @@ form.addEventListener("submit", (event) => {
   if (complaints.length) { errors.textContent = complaints.join(" "); return; }
   errors.textContent = ""; store.upsert(item); form.reset();
   (form.elements.namedItem("dueDate") as HTMLInputElement).value = localDay();
+  (form.elements.namedItem("title") as HTMLInputElement).focus();
 });
 
-// Quick-category buttons
+// Quick-category and Quick-effort buttons
 form.addEventListener("click", (event) => {
   const target = event.target as HTMLElement;
   if (target.classList.contains("pill")) {
     const category = target.dataset.cat;
     const select = form.elements.namedItem("category") as HTMLSelectElement;
     if (category) select.value = category;
+  }
+  if (target.classList.contains("preset-btn")) {
+    const mins = target.dataset.mins;
+    const input = form.elements.namedItem("effort") as HTMLInputElement;
+    if (mins) input.value = mins;
   }
 });
 
