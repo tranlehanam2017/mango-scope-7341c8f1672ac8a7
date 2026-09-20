@@ -293,6 +293,34 @@ function render(records: readonly LifeRecord[]): void {
     bulkDiv.appendChild(remBtn);
   }
 
+  if (filtered.length > 0) {
+    const resolveBtn = document.createElement('button');
+    resolveBtn.className = 'ghost';
+    resolveBtn.textContent = `Mark ${filtered.length} filtered as done`;
+    resolveBtn.onclick = () => {
+      if (confirm(`Mark ${filtered.length} filtered records as done?`)) {
+        const now = new Date().toISOString();
+        filtered.forEach(r => {
+          if (r.status !== 'done') store.upsert({ ...r, status: 'done', updatedAt: now });
+        });
+      }
+    };
+    bulkDiv.appendChild(resolveBtn);
+
+    const archiveBtn = document.createElement('button');
+    archiveBtn.className = 'ghost';
+    archiveBtn.textContent = `Archive ${filtered.length} filtered`;
+    archiveBtn.onclick = () => {
+      if (confirm(`Archive ${filtered.length} filtered records?`)) {
+        const now = new Date().toISOString();
+        filtered.forEach(r => {
+          if (r.status !== 'archived') store.upsert({ ...r, status: 'archived', updatedAt: now });
+        });
+      }
+    };
+    bulkDiv.appendChild(archiveBtn);
+  }
+
   document.querySelector("#plan")!.innerHTML = filtered.length ? filtered.map((item) => {
     const entry = priorityFor(item);
     const isDone = item.status === "done";
