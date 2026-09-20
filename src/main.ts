@@ -296,7 +296,10 @@ function render(records: readonly LifeRecord[]): void {
 
   const bulkDiv = document.querySelector("#bulk-actions")!;
   const doneCount = records.filter(r => r.status === "done").length;
+  const archiveCount = records.filter(r => r.status === "archived").length;
+
   bulkDiv.innerHTML = '';
+
   if (doneCount > 0) {
     const btn = document.createElement('button');
     btn.className = 'ghost';
@@ -311,6 +314,20 @@ function render(records: readonly LifeRecord[]): void {
     };
     bulkDiv.appendChild(btn);
   }
+
+  if (archiveCount > 0) {
+    const btn = document.createElement('button');
+    btn.className = 'ghost danger';
+    btn.textContent = `Prune ${archiveCount} archived`;
+    btn.onclick = () => {
+      if (confirm(`Permanently delete ${archiveCount} archived records? This cannot be undone.`)) {
+        const remaining = records.filter(r => r.status !== 'archived');
+        store.replace(remaining);
+      }
+    };
+    bulkDiv.appendChild(btn);
+  }
+
   if (selectedCategory !== 'all') {
     const btn = document.createElement('button');
     btn.className = 'ghost';
