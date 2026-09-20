@@ -220,7 +220,7 @@ document.querySelector<HTMLInputElement>("#import")!.addEventListener("change", 
 document.querySelector("#clear-all")!.addEventListener("click", () => {
   const records = store.all();
   if (records.length === 0) return;
-  if (confirm(`Warning: This will permanently delete all ${records.length} records from your local storage. Are you sure you want to proceed?`)) store.clear();
+  if (confirm(`Warning: You have ${records.length} record(s) in your board. This action will permanently delete everything from your local storage. Are you sure?`)) store.clear();
 });
 
 document.querySelector("#clear-filters")!.addEventListener("click", () => {
@@ -415,6 +415,7 @@ function render(records: readonly LifeRecord[]): void {
         </select>
         <div class="record-btn-group">
           ${!isDone && !isArchived ? `<button class="ghost" data-mark-done="${escapeHtl(item.id)}" aria-label="Mark ${escapeHtml(item.title)} as done">Done</button>` : ""}
+          ${isArchived ? `<button class="ghost" data-restore="${escapeHtl(item.id)}" aria-label="Restore ${escapeHtml(item.title)}">Restore</button>` : ""}
           <button class="ghost" data-today="${escapeHtl(item.id)}" aria-label="Move ${escapeHtml(item.title)} to today">Today</button>
           <button class="ghost" data-tomorrow="${escapeHtl(item.id)}" aria-label="Move ${escapeHtml(item.title)} to tomorrow">Tomorrow</button>
           <button class="ghost" data-next-week="${escapeHtl(item.id)}" aria-label="Move ${escapeHtml(item.title)} to next week">Next Week</button>
@@ -576,6 +577,13 @@ function render(records: readonly LifeRecord[]): void {
     if (record) {
       showUndo({ ...record }, 'edited');
       store.upsert({ ...record, status: 'done', updatedAt: new Date().toISOString() });
+    }
+  };
+  for (const button of document.querySelectorAll<HTMLButtonElement>("[data-restore]")) button.onclick = () => {
+    const record = records.find(r => r.id === button.dataset.restore!);
+    if (record) {
+      showUndo({ ...record }, 'edited');
+      store.upsert({ ...record, status: 'planned', updatedAt: new Date().toISOString() });
     }
   };
   document.querySelector("#week")!.innerHTML = suggestDailyLoad(records, Number(capacity.value) || 90).map((day) => `<article class="day ${day.overloaded ? "over" : ""}">
