@@ -21,6 +21,7 @@ let searchQuery = "";
 let showCompleted = false;
 let activeOnly = false;
 let showArchived = false;
+let sortBy = "priority";
 
 // Undo state
 let lastDeletedRecord: LifeRecord | null = null;
@@ -58,7 +59,13 @@ root.innerHTML = `
     <label class="file">Import JSON<input id="import" type="file" accept="application/json"></label>
     <button id="clear-all" class="ghost danger">Clear All</button></div></section>
   <section class="panel plan-panel"><div class="panel-title"><h2>Priority plan</h2><div class="filter-group"><div class="search-wrap"><input id="search" placeholder="Search records..."><button id="clear-search" class="ghost search-clear">×</button></div><select id="filter"><option value="all">All categories</option>
-    ${theme.categories.map((x) => `<option>${x}</option>`).join("")}</select><label class="checkbox-label"><input id="show-completed" type="checkbox"> Show done</label><label class="checkbox-label"><input id="active-only" type="checkbox"> Active only</label><label class="checkbox-label"><input id="show-archived" type="checkbox"> Show archived</label><button id="clear-filters" class="ghost">Clear filters</button></div></div><div id="bulk-actions" class="bulk-actions"></div><div id="plan"></div></section></main>
+    ${theme.categories.map((x) => `<option>${x}</option>`).join("")}</select><label class="checkbox-label"><input id="show-completed" type="checkbox"> Show done</label><label class="checkbox-label"><input id="active-only" type="checkbox"> Active only</label><label class="checkbox-label"><input id="show-archived" type="checkbox"> Show archived</label><button id="clear-filters" class="ghost">Clear filters</button></div></div><div class="sort-group"><label>Sort by 
+      <select id="sort-by">
+        <option value="priority">Priority Score</option>
+        <option value="title">Title</option>
+        <option value="date">Due Date</option>
+      </select>
+    </label></div><div id="bulk-actions" class="bulk-actions"></div><div id="plan"></div></section></main>
   <section class="panel week-panel"><div class="panel-title"><h2>Seven-day load</h2><label>Daily capacity
     <input id="capacity" type="number" min="15" max="480" step="15" value="90"></label></div><div id="week" class="week"></div></section>
   <div id="undo-toast" class="undo-toast"></div>
@@ -166,6 +173,11 @@ document.querySelector<HTMLInputElement>("#show-archived")!.addEventListener("ch
   render(store.all());
 });
 
+document.querySelector<HTMLSelectElement>("#sort-by")!.addEventListener("change", (event) => {
+  sortBy = (event.target as HTMLSelectElement).value;
+  render(store.all());
+});
+
 capacity.addEventListener("input", () => render(store.all()));
 document.querySelector("#seed-export")!.addEventListener("click", () => download("records.json", exportJson(store.all()), "application/json"));
 document.querySelector("#csv")!.addEventListener("click", () => download("records.csv", exportCsv(store.all()), "text/csv"));
@@ -186,12 +198,14 @@ document.querySelector("#clear-filters")!.addEventListener("click", () => {
   showCompleted = false;
   activeOnly = false;
   showArchived = false;
+  sortBy = "priority";
   
   (document.querySelector("#filter") as HTMLSelectElement).value = "all";
   (document.querySelector("#search") as HTMLInputElement).value = "";
   (document.querySelector("#show-completed") as HTMLInputElement).checked = false;
   (document.querySelector("#active-only") as HTMLInputElement).checked = false;
   (document.querySelector("#show-archived") as HTMLInputElement).checked = false;
+  (document.querySelector("#sort-by") as HTMLSelectElement).value = "priority";
   
   render(store.all());
 });
@@ -222,6 +236,8 @@ function render(records: readonly LifeRecord[]): void {
   }).join("");
   
   const allRecords = [...records].sort((a, b) => {
+    if (sortBy === "title") return a.title.localeCompare(b.title);
+    if (sortBy === "date") return a.dueDate.localeCompare(b.dueDate);
     const aEntry = priorityFor(a);
     const bEntry = priorityFor(b);
     return bEntry.score - aEntry.score || a.dueDate.localeCompare(b.dueDate);
@@ -474,8 +490,6 @@ function render(records: readonly LifeRecord[]): void {
     }
   };
   for (const button of document.querySelectorAll<HTMLButtonElement>("[data-next-week]")) button.onclick = () => {
-    const record = records.find(r => r.id === button.dataset.nextWeek! || r.id === button.dataset.nextWeek!);
-    // Fixing the bug: use dataset.nextWeek which maps to data-next-week
     const id = button.dataset.nextWeek!;
     const rec = records.find(r => r.id === id);
     if (rec) {
