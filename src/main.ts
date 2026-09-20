@@ -40,7 +40,7 @@ root.innerHTML = `
     <span>revision</span><strong>${revisionLedger.ordinal}</strong><small>${revisionLedger.day}</small></div></header>
   <section id="summary" class="summary"></section>
   <main class="layout"><section class="panel"><div class="panel-title"><h2>Add ${theme.itemLabel.toLowerCase()}</h2><div class="panel-actions"><button id="seed-export" class="ghost">Export JSON</button><button id="clear-form" class="ghost">Clear Form</button></div></div><form id="record-form" novalidate>
-    <label>Title<input name="title" maxlength="100" required></label>
+    <label>Title<input name="title" maxlength="100" required placeholder="Press Enter for fast-add"></label>
     <div class="form-grid"><label>Category
       <div class="category-pills">
         ${theme.categories.map(cat => `<button type="button" class="pill" data-cat="${cat}">${cat}</button>`).join('')}
@@ -117,6 +117,37 @@ form.addEventListener("submit", (event) => {
   errors.textContent = ""; store.upsert(item); form.reset();
   (form.elements.namedItem("dueDate") as HTMLInputElement).value = localDay();
   (form.elements.namedItem("title") as HTMLInputElement).focus();
+});
+
+// Fast-add shortcut: Enter in title field
+(form.elements.namedItem("title") as HTMLInputElement).addEventListener("keydown", (event) => {
+  if (event.key === "Enter") {
+    const val = (event.target as HTMLInputElement).value.trim();
+    if (val) {
+      event.preventDefault();
+      const now = new Date().toISOString();
+      const item: LifeRecord = {
+        id: crypto.randomUUID(),
+        title: val,
+        category: (form.elements.namedItem("category") as HTMLSelectElement).value,
+        dueDate: (form.elements.namedItem("dueDate") as HTMLInputElement).value,
+        effort: Number((form.elements.namedItem("effort") as HTMLInputElement).value),
+        impact: Number((form.elements.namedItem("impact") as HTMLInputElement).value),
+        status: "planned",
+        notes: "",
+        createdAt: now,
+        updatedAt: now,
+      };
+      const complaints = validateRecord(item, theme);
+      if (complaints.length) {
+        errors.textContent = complaints.join(" ");
+      } else {
+        errors.textContent = "";
+        store.upsert(item);
+        (event.target as HTMLInputElement).value = "";
+      }
+    }
+  }
 });
 
 // Quick-category and Quick-effort buttons
