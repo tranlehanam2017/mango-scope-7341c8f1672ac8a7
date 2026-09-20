@@ -251,6 +251,15 @@ window.addEventListener("keydown", (event) => {
     event.preventDefault();
     document.querySelector("#search")!.focus();
   }
+  if ((event.metaKey || event.ctrlKey) && event.key === "Backspace") {
+    const searchInput = document.querySelector<HTMLInputElement>("#search")!;
+    if (document.activeElement === searchInput && searchQuery) {
+      event.preventDefault();
+      searchInput.value = "";
+      searchQuery = "";
+      render(store.all());
+    }
+  }
 });
 
 function render(records: readonly LifeRecord[]): void {
@@ -293,10 +302,12 @@ function render(records: readonly LifeRecord[]): void {
     btn.className = 'ghost';
     btn.textContent = `Archive ${doneCount} completed`;
     btn.onclick = () => {
-      const now = new Date().toISOString();
-      records.filter(r => r.status === 'done').forEach(r => {
-        store.upsert({ ...r, status: 'archived', updatedAt: now });
-      });
+      if (confirm(`Archive ${doneCount} completed records?`)) {
+        const now = new Date().toISOString();
+        records.filter(r => r.status === 'done').forEach(r => {
+          store.upsert({ ...r, status: 'archived', updatedAt: now });
+        });
+      }
     };
     bulkDiv.appendChild(btn);
   }
@@ -305,10 +316,13 @@ function render(records: readonly LifeRecord[]): void {
     btn.className = 'ghost';
     btn.textContent = `Mark ${selectedCategory} as done`;
     btn.onclick = () => {
-      const now = new Date().toISOString();
-      records.filter(r => r.category === selectedCategory && r.status !== 'done').forEach(r => {
-        store.upsert({ ...r, status: 'done', updatedAt: now });
-      });
+      const toMark = records.filter(r => r.category === selectedCategory && r.status !== 'done');
+      if (toMark.length > 0 && confirm(`Mark ${toMark.length} ${selectedCategory} records as done?`)) {
+        const now = new Date().toISOString();
+        toMark.forEach(r => {
+          store.upsert({ ...r, status: 'done', updatedAt: now });
+        });
+      }
     };
     bulkDiv.appendChild(btn);
     
