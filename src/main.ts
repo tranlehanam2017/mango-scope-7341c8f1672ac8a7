@@ -381,6 +381,20 @@ function render(records: readonly LifeRecord[]): void {
       }
     };
     bulkDiv.appendChild(archiveBtn);
+
+    const todayBtn = document.createElement('button');
+    todayBtn.className = 'ghost';
+    todayBtn.textContent = `Move ${filtered.length} filtered to today`;
+    todayBtn.onclick = () => {
+      if (confirm(`Move ${filtered.length} filtered records to today's date?`)) {
+        const now = new Date().toISOString();
+        const today = localDay();
+        filtered.forEach(r => {
+          if (r.dueDate !== today) store.upsert({ ...r, dueDate: today, updatedAt: now });
+        });
+      }
+    };
+    bulkDiv.appendChild(todayBtn);
   }
 
   document.querySelector("#plan")!.innerHTML = filtered.length ? filtered.map((item) => {
