@@ -369,6 +369,19 @@ function render(records: readonly LifeRecord[]): void {
     };
     bulkDiv.appendChild(resolveBtn);
 
+    const activeBtn = document.createElement('button');
+    activeBtn.className = 'ghost';
+    activeBtn.textContent = `Mark ${filtered.length} filtered as active`;
+    activeBtn.onclick = () => {
+      if (confirm(`Mark ${filtered.length} filtered records as active?`)) {
+        const now = new Date().toISOString();
+        filtered.forEach(r => {
+          if (r.status !== 'active') store.upsert({ ...r, status: 'active', updatedAt: now });
+        });
+      }
+    };
+    bulkDiv.appendChild(activeBtn);
+
     const archiveBtn = document.createElement('button');
     archiveBtn.className = 'ghost';
     archiveBtn.textContent = `Archive ${filtered.length} filtered`;
@@ -445,12 +458,12 @@ function render(records: readonly LifeRecord[]): void {
           ${(["planned", "active", "done", "archived"] as ItemStatus[]).map((status) => `<option ${status === item.status ? "selected" : ""}>${status}</option>`).join("")}
         </select>
         <div class="record-btn-group">
+          <button class="ghost" data-duplicate="${escapeHtl(item.id)}" aria-label="Duplicate ${escapeHtml(item.title)}">Duplicate</button>
           ${!isDone && !isArchived ? `<button class="ghost" data-mark-done="${escapeHtl(item.id)}" aria-label="Mark ${escapeHtml(item.title)} as done">Done</button>` : ""}
           ${isArchived ? `<button class="ghost" data-restore="${escapeHtl(item.id)}" aria-label="Restore ${escapeHtml(item.title)}">Restore</button>` : ""}
           <button class="ghost" data-today="${escapeHtl(item.id)}" aria-label="Move ${escapeHtml(item.title)} to today">Today</button>
           <button class="ghost" data-tomorrow="${escapeHtl(item.id)}" aria-label="Move ${escapeHtml(item.title)} to tomorrow">Tomorrow</button>
           <button class="ghost" data-next-week="${escapeHtl(item.id)}" aria-label="Move ${escapeHtml(item.title)} to next week">Next Week</button>
-          <button class="ghost" data-duplicate="${escapeHtl(item.id)}" aria-label="Duplicate ${escapeHtml(item.title)}">Duplicate</button>
           <button class="danger ghost" data-remove="${escapeHtl(item.id)}" aria-label="Remove ${escapeHtml(item.title)}">Remove</button>
         </div>
       </div></article>`;
