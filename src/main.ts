@@ -408,6 +408,27 @@ function render(records: readonly LifeRecord[]): void {
       }
     };
     bulkDiv.appendChild(todayBtn);
+
+    const shiftWrap = document.createElement('div');
+    shiftWrap.className = 'shift-wrap';
+    shiftWrap.style.display = 'inline-flex';
+    shiftWrap.style.alignItems = 'center';
+    shiftWrap.style.gap = '0.5rem';
+    shiftWrap.innerHTML = `<span style="font-size: 0.7rem; color: #668078; margin-left: 0.5rem;">Bulk Shift:</span><input type="date" id="bulk-date" style="width: auto; padding: 0.3rem; font-size: 0.7rem;">`;
+    bulkDiv.appendChild(shiftWrap);
+
+    const bulkDateInput = shiftWrap.querySelector<HTMLInputElement>('#bulk-date')!;
+    bulkDateInput.value = localDay();
+    bulkDateInput.onchange = () => {
+      const newDate = bulkDateInput.value;
+      if (!newDate) return;
+      if (confirm(`Move ${filtered.length} filtered records to ${newDate}?`)) {
+        const now = new Date().toISOString();
+        filtered.forEach(r => {
+          if (r.dueDate !== newDate) store.upsert({ ...r, dueDate: newDate, updatedAt: now });
+        });
+      }
+    };
   }
 
   document.querySelector("#plan")!.innerHTML = filtered.length ? filtered.map((item) => {
