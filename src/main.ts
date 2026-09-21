@@ -247,7 +247,7 @@ window.addEventListener("keydown", (event) => {
     event.preventDefault();
     (form.elements.namedItem("title") as HTMLInputElement).focus();
   }
-  if ((event.metaKey || event.ctrlKey) && event.key === "f") {
+  if ((event.metaKey || event.ctrlKey) && (event.key === "f" || (event.key === "k" && event.shiftKey))) {
     event.preventDefault();
     document.querySelector("#search")!.focus();
   }
