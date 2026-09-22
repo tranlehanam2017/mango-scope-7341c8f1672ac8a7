@@ -8,6 +8,7 @@ const WEIGHTS = {
   URGENCY_WEEK: 40,
   OVERDUE_BASE: 70,
   OVERDUE_DAILY: 5,
+  OVERDUE_STAGNATION_KICK: 15, // Boost for items overdue by more than 14 days
   ACTIVE_BOOST: 1.25,
   CRITICAL_BOOST: 1.5,
 };
@@ -46,8 +47,15 @@ export function priorityFor(item: LifeRecord, today = localDay()): PlanEntry {
   let score = item.impact * WEIGHTS.IMPACT;
   
   if (daysUntilDue < 0) {
-    score += WEIGHTS.OVERDUE_BASE + Math.min(Math.abs(daysUntilDue), 14) * WEIGHTS.OVERDUE_DAILY;
-    reasons.push(`${Math.abs(daysUntilDue)} day(s) overdue`);
+    const absDays = Math.abs(daysUntilDue);
+    score += WEIGHTS.OVERDUE_BASE + Math.min(absDays, 14) * WEIGHTS.OVERDUE_DAILY;
+    reasons.push(`${absDays} day(s) overdue`);
+
+    // Prevent stagnation: items overdue by more than 2 weeks get a secondary kick
+    if (absDays > 14) {
+      score += WEIGHTS.OVERDUE_STAGNATION_KICK;
+      reasons.push("stagnation boost");
+    }
   } else if (daysUntilDue === 0) {
     score += WEIGHTS.URGENCY_TODAY;
     reasons.push("urgent: due today");
@@ -87,11 +95,12 @@ export function buildPlan(items: readonly LifeRecord[], today = localDay()): Pla
 export function summarize(items: readonly LifeRecord[], today = localDay()): PlanSummary {
   return items.reduce<PlanSummary>((summary, item) => {
     summary.total += 1;
-    summary.effort += (item.status === "done" || item.status === "archived") ? 0 : item.effort;
-    summary.completed += (item.status === "done" || item.status === "archived") ? 1 : 0;
+    const isFinished = item.status === "done" || item.status === "archived";
+    summary.effort += isFinished ? 0 : item.effort;
+    summary.completed += isFinished ? 1 : 0;
     const days = daysBetween(today, item.dueDate);
-    summary.overdue += (item.status !== "done" && item.status !== "archived") && days < 0 ? 1 : 0;
-    summary.dueSoon += (item.status !== "done" && item.status !== "archived") && days >= 0 && days <= 7 ? 1 : 0;
+    summary.overdue += (!isFinished && days < 0) ? 1 : 0;
+    summary.dueSoon += (!isFinished && days >= 0 && days <= 7) ? 1 : 0;
     summary.byCategory[item.category] = (summary.byCategory[item.category] ?? 0) + 1;
     return summary;
   }, { total: 0, completed: 0, overdue: 0, dueSoon: 0, effort: 0, byCategory: {} });
