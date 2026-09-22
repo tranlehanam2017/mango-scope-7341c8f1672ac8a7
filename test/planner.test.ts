@@ -57,6 +57,18 @@ describe("planning engine", () => {
       const diff = priorityFor(highImpact, today).score - priorityFor(midImpact, today).score;
       expect(diff).toBeGreaterThan(20);
     });
+
+    it("penalizes inactive overdue items", () => {
+      const plannedOverdue = item({ id: "p", status: "planned", dueDate: "2026-08-10" });
+      const activeOverdue = item({ id: "a", status: "active", dueDate: "2026-08-10" });
+      const today = "2026-08-20";
+      
+      const scorePlanned = priorityFor(plannedOverdue, today).score;
+      const scoreActive = priorityFor(activeOverdue, today).score;
+      
+      expect(scoreActive).toBeGreaterThan(scorePlanned);
+      expect(priorityFor(plannedOverdue, today).reasons).toContain("inactive overdue penalty");
+    });
   });
 });
 
