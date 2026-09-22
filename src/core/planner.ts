@@ -36,7 +36,8 @@ export function priorityFor(item: LifeRecord, today = localDay()): PlanEntry {
   let score = item.impact * 15;
   
   if (daysUntilDue < 0) {
-    score += 60 + Math.min(Math.abs(daysUntilDue), 14) * 4;
+    // Overdue: baseline penalty + sliding scale that increases for the first 14 days
+    score += 60 + Math.min(Math.abs(daysUntilDue), 14) * 5;
     reasons.push(`${Math.abs(daysUntilDue)} day(s) overdue`);
   } else if (daysUntilDue === 0) {
     score += 50;
@@ -51,7 +52,8 @@ export function priorityFor(item: LifeRecord, today = localDay()): PlanEntry {
   score -= effortPenalty;
 
   if (item.status === "active") {
-    score += 10;
+    // Active items get a boost to stay visible, multiplied to scale with the base priority
+    score *= 1.2;
     reasons.push("already in progress");
   }
 
