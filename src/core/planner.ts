@@ -31,25 +31,33 @@ export function validateRecord(input: Partial<LifeRecord>, theme: ThemeConfig): 
 export function priorityFor(item: LifeRecord, today = localDay()): PlanEntry {
   const daysUntilDue = daysBetween(today, item.dueDate);
   const reasons: string[] = [];
-  let score = item.impact * 12;
+  
+  // Base score from impact (1-5) scaled up
+  let score = item.impact * 15;
+  
   if (daysUntilDue < 0) {
-    score += 55 + Math.min(Math.abs(daysUntilDue), 14) * 3;
+    score += 60 + Math.min(Math.abs(daysUntilDue), 14) * 4;
     reasons.push(`${Math.abs(daysUntilDue)} day(s) overdue`);
   } else if (daysUntilDue === 0) {
-    score += 45;
+    score += 50;
     reasons.push("due today");
   } else if (daysUntilDue <= 7) {
-    score += 36 - daysUntilDue * 4;
+    score += 40 - daysUntilDue * 5;
     reasons.push(`due in ${daysUntilDue} day(s)`);
   }
-  const effortPenalty = Math.min(item.effort / 20, 12);
+
+  // Effort penalty: larger tasks are slightly deprioritized to encourage quick wins
+  const effortPenalty = Math.min(item.effort / 25, 15);
   score -= effortPenalty;
+
   if (item.status === "active") {
-    score += 8;
+    score += 10;
     reasons.push("already in progress");
   }
+
   if (item.status === "done" || item.status === "archived") score = -1;
   if (reasons.length === 0) reasons.push("ranked by impact and effort");
+
   return { item, score: Math.round(score * 10) / 10, reasons, daysUntilDue };
 }
 
