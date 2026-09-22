@@ -11,6 +11,7 @@ const WEIGHTS = {
   OVERDUE_STAGNATION_KICK: 15, // Boost for items overdue by more than 14 days
   ACTIVE_BOOST: 1.25,
   CRITICAL_BOOST: 1.5,
+  DISTANT_DECAY_MAX: 10, // Max penalty for items due far in the future
 };
 
 export function localDay(date = new Date()): string {
@@ -62,6 +63,11 @@ export function priorityFor(item: LifeRecord, today = localDay()): PlanEntry {
   } else if (daysUntilDue <= 7) {
     score += WEIGHTS.URGENCY_WEEK - (daysUntilDue * 5);
     reasons.push(`due in ${daysUntilDue} day(s)`);
+  } else {
+    // Decay score for items far in the future to favor closer (though not urgent) items
+    const decay = Math.min(WEIGHTS.DISTANT_DECAY_MAX, Math.floor(daysUntilDue / 10));
+    score -= decay;
+    if (decay > 0) reasons.push("scheduled for future");
   }
 
   // Effort penalty: larger tasks are slightly deprioritized

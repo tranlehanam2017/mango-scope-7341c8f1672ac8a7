@@ -27,6 +27,37 @@ describe("planning engine", () => {
     const week = suggestDailyLoad([item({ effort: 120 })], 60, "2026-08-19");
     expect(week.some((day) => day.overloaded)).toBe(true);
   });
+
+  describe("scoring nuances", () => {
+    it("applies a decay penalty for very distant items", () => {
+      const near = item({ id: "near", dueDate: "2026-08-25", impact: 3 }); // 5 days away
+      const far = item({ id: "far", dueDate: "2026-12-25", impact: 3 });   // months away
+      const today = "2026-08-20";
+      
+      const scoreNear = priorityFor(near, today).score;
+      const scoreFar = priorityFor(far, today).score;
+      
+      expect(scoreNear).toBeGreaterThan(scoreFar);
+    });
+
+    it("boosts active items", () => {
+      const planned = item({ id: "p", status: "planned" });
+      const active = item({ id: "a", status: "active" });
+      const today = "2026-08-20";
+      
+      expect(priorityFor(active, today).score).toBeGreaterThan(priorityFor(planned, today).score);
+    });
+
+    it("applies critical boost for impact 5", () => {
+      const highImpact = item({ id: "high", impact: 5 });
+      const midImpact = item({ id: "mid", impact: 4 });
+      const today = "2026-08-20";
+      
+      // The gap should be more than just the base impact difference (5*20 vs 4*20)
+      const diff = priorityFor(highImpact, today).score - priorityFor(midImpact, today).score;
+      expect(diff).toBeGreaterThan(20);
+    });
+  });
 });
 
 describe("JSON exchange boundary", () => {
