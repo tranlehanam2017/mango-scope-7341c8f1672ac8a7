@@ -2,6 +2,16 @@ import type { LifeRecord, PlanEntry, PlanSummary, ThemeConfig } from "../types";
 
 const DAY_MS = 86_400_000;
 
+const WEIGHTS = {
+  IMPACT: 20,
+  URGENCY_TODAY: 60,
+  URGENCY_WEEK: 40,
+  OVERDUE_BASE: 70,
+  OVERDUE_DAILY: 5,
+  ACTIVE_BOOST: 1.25,
+  CRITICAL_BOOST: 1.5,
+};
+
 export function localDay(date = new Date()): string {
   const local = new Date(date.getTime() - date.getTimezoneOffset() * 60_000);
   return local.toISOString().slice(0, 10);
@@ -32,30 +42,33 @@ export function priorityFor(item: LifeRecord, today = localDay()): PlanEntry {
   const daysUntilDue = daysBetween(today, item.dueDate);
   const reasons: string[] = [];
   
-  // Base score from impact (1-5) scaled up
-  let score = item.impact * 15;
+  // Base score from impact
+  let score = item.impact * WEIGHTS.IMPACT;
   
   if (daysUntilDue < 0) {
-    // Overdue: baseline penalty + sliding scale that increases for the first 14 days
-    score += 60 + Math.min(Math.abs(daysUntilDue), 14) * 5;
+    score += WEIGHTS.OVERDUE_BASE + Math.min(Math.abs(daysUntilDue), 14) * WEIGHTS.OVERDUE_DAILY;
     reasons.push(`${Math.abs(daysUntilDue)} day(s) overdue`);
   } else if (daysUntilDue === 0) {
-    score += 50;
+    score += WEIGHTS.URGENCY_TODAY;
     reasons.push("urgent: due today");
   } else if (daysUntilDue <= 7) {
-    score += 40 - daysUntilDue * 5;
+    score += WEIGHTS.URGENCY_WEEK - (daysUntilDue * 5);
     reasons.push(`due in ${daysUntilDue} day(s)`);
   }
 
   // Effort penalty: larger tasks are slightly deprioritized
-  // Progressive penalty: 0-30m (0), 31-120m (linear), 121m+ (capped)
   const effortPenalty = Math.max(0, Math.min((item.effort - 30) / 10, 15));
   score -= effortPenalty;
 
   if (item.status === "active") {
-    // Active items get a boost to stay visible, multiplied to scale with the base priority
-    score *= 1.2;
+    score *= WEIGHTS.ACTIVE_BOOST;
     reasons.push("already in progress");
+  }
+
+  // Critical item boost: High impact items get a multiplier to prevent them from being buried by effort penalties
+  if (item.impact >= 5) {
+    score *= WEIGHTS.CRITICAL_BOOST;
+    reasons.push("high community value");
   }
 
   if (item.status === "done" || item.status === "archived") score = -1;
