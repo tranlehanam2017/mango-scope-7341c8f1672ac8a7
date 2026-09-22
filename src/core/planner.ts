@@ -41,14 +41,15 @@ export function priorityFor(item: LifeRecord, today = localDay()): PlanEntry {
     reasons.push(`${Math.abs(daysUntilDue)} day(s) overdue`);
   } else if (daysUntilDue === 0) {
     score += 50;
-    reasons.push("due today");
+    reasons.push("urgent: due today");
   } else if (daysUntilDue <= 7) {
     score += 40 - daysUntilDue * 5;
     reasons.push(`due in ${daysUntilDue} day(s)`);
   }
 
-  // Effort penalty: larger tasks are slightly deprioritized to encourage quick wins
-  const effortPenalty = Math.min(item.effort / 25, 15);
+  // Effort penalty: larger tasks are slightly deprioritized
+  // Progressive penalty: 0-30m (0), 31-120m (linear), 121m+ (capped)
+  const effortPenalty = Math.max(0, Math.min((item.effort - 30) / 10, 15));
   score -= effortPenalty;
 
   if (item.status === "active") {
