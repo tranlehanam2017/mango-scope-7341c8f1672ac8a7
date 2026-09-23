@@ -5,7 +5,8 @@ const DAY_MS = 86_400_000;
 const WEIGHTS = {
   IMPACT: 20,
   URGENCY_TODAY: 60,
-  URGENCY_WEEK: 40,
+  URGENCY_NEAR: 30, // 1-3 days away
+  URGENCY_WEEK: 15,  // 4-7 days away
   OVERDUE_BASE: 70,
   OVERDUE_DAILY: 5,
   OVERDUE_STAGNATION_KICK: 15, // Boost for items overdue by more than 14 days
@@ -75,8 +76,11 @@ export function priorityFor(item: LifeRecord, today = localDay(), focusCategory?
   } else if (daysUntilDue === 0) {
     score += WEIGHTS.URGENCY_TODAY;
     reasons.push("urgent: due today");
+  } else if (daysUntilDue <= 3) {
+    score += WEIGHTS.URGENCY_NEAR;
+    reasons.push(`due in ${daysUntilDue} day(s)`);
   } else if (daysUntilDue <= 7) {
-    score += WEIGHTS.URGENCY_WEEK - (daysUntilDue * 5);
+    score += WEIGHTS.URGENCY_WEEK;
     reasons.push(`due in ${daysUntilDue} day(s)`);
   } else {
     // Decay score for items far in the future to favor closer (though not urgent) items
@@ -94,7 +98,11 @@ export function priorityFor(item: LifeRecord, today = localDay(), focusCategory?
   }
 
   // Effort penalty: larger tasks are slightly deprioritized
-  const effortPenalty = Math.max(0, Math.min((item.effort - 30) / 10, 15));
+  // Now uses a tiered approach to avoid over-penalizing medium tasks
+  let effortPenalty = 0;
+  if (item.effort > 60) {
+    effortPenalty = Math.max(0, Math.min((item.effort - 60) / 15, 15));
+  }
   score -= effortPenalty;
 
   if (item.status === "active") {
