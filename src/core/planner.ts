@@ -12,6 +12,7 @@ const WEIGHTS = {
   OVERDUE_STAGNATION_KICK: 15, // Boost for items overdue by more than 14 days
   OVERDUE_INACTIVE_PENALTY: 10, // Penalty for overdue items not marked as active
   OVERDUE_IMPACT_MULTIPLIER: 5, // Extra weight per impact point for overdue items
+  AT_RISK_MULTIPLIER: 1.3, // Multiplier for high-impact overdue tasks
   ACTIVE_BOOST: 1.25,
   CRITICAL_BOOST: 1.5,
   DISTANT_DECAY_MAX: 10, // Max penalty for items due far in the future
@@ -72,6 +73,12 @@ export function priorityFor(item: LifeRecord, today = localDay(), focusCategory?
     if (item.status === "planned") {
       score -= WEIGHTS.OVERDUE_INACTIVE_PENALTY;
       reasons.push("inactive overdue penalty");
+    }
+
+    // At-Risk Multiplier: Critical overdue tasks get a multiplier to ensure they stay visible
+    if (item.impact >= 4) {
+      score *= WEIGHTS.AT_RISK_MULTIPLIER;
+      reasons.push("at-risk critical");
     }
   } else if (daysUntilDue === 0) {
     score += WEIGHTS.URGENCY_TODAY;
