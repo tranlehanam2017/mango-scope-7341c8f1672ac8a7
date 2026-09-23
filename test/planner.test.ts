@@ -69,6 +69,15 @@ describe("planning engine", () => {
       expect(scoreActive).toBeGreaterThan(scorePlanned);
       expect(priorityFor(plannedOverdue, today).reasons).toContain("inactive overdue penalty");
     });
+
+    it("prioritizes high-impact overdue items over low-impact overdue items", () => {
+      const highImpactOverdue = item({ id: "high", impact: 5, dueDate: "2026-08-10" });
+      const lowImpactOverdue = item({ id: "low", impact: 1, dueDate: "2026-08-10" });
+      const today = "2026-08-20";
+      
+      expect(priorityFor(highImpactOverdue, today).score).toBeGreaterThan(priorityFor(lowImpactOverdue, today).score);
+      expect(priorityFor(highImpactOverdue, today).reasons).toContain("high-value overdue");
+    });
   });
 });
 

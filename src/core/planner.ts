@@ -10,6 +10,7 @@ const WEIGHTS = {
   OVERDUE_DAILY: 5,
   OVERDUE_STAGNATION_KICK: 15, // Boost for items overdue by more than 14 days
   OVERDUE_INACTIVE_PENALTY: 10, // Penalty for overdue items not marked as active
+  OVERDUE_IMPACT_MULTIPLIER: 5, // Extra weight per impact point for overdue items
   ACTIVE_BOOST: 1.25,
   CRITICAL_BOOST: 1.5,
   DISTANT_DECAY_MAX: 10, // Max penalty for items due far in the future
@@ -50,8 +51,13 @@ export function priorityFor(item: LifeRecord, today = localDay()): PlanEntry {
   
   if (daysUntilDue < 0) {
     const absDays = Math.abs(daysUntilDue);
-    score += WEIGHTS.OVERDUE_BASE + Math.min(absDays, 14) * WEIGHTS.OVERDUE_DAILY;
+    
+    // High-impact overdue items should surface faster than low-impact ones
+    const overdueImpactBoost = item.impact * WEIGHTS.OVERDUE_IMPACT_MULTIPLIER;
+    score += WEIGHTS.OVERDUE_BASE + overdueImpactBoost + Math.min(absDays, 14) * WEIGHTS.OVERDUE_DAILY;
+    
     reasons.push(`${absDays} day(s) overdue`);
+    if (item.impact >= 4) reasons.push("high-value overdue");
 
     // Prevent stagnation: items overdue by more than 2 weeks get a secondary kick
     if (absDays > 14) {
