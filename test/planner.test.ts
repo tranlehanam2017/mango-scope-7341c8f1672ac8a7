@@ -90,6 +90,18 @@ describe("planning engine", () => {
       expect(scoreQuick).toBeGreaterThan(scoreSlow);
       expect(priorityFor(quick, today).reasons).toContain("quick win");
     });
+
+    it("boosts items matching the focus category", () => {
+      const focused = item({ id: "f", category: "Food" });
+      const unfocused = item({ id: "u", category: "Education" });
+      const today = "2026-08-20";
+      
+      const scoreFocused = priorityFor(focused, today, "Food").score;
+      const scoreUnfocused = priorityFor(unfocused, today, "Food").score;
+      
+      expect(scoreFocused).toBeGreaterThan(scoreUnfocused);
+      expect(priorityFor(focused, today, "Food").reasons).toContain("focus: Food");
+    });
   });
 });
 

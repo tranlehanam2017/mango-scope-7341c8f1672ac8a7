@@ -15,6 +15,7 @@ const WEIGHTS = {
   CRITICAL_BOOST: 1.5,
   DISTANT_DECAY_MAX: 10, // Max penalty for items due far in the future
   EFFICIENCY_BOOST: 15, // Bonus for high-impact, low-effort tasks
+  FOCUS_BOOST: 50, // Bonus for items matching the selected focus category
 };
 
 export function localDay(date = new Date()): string {
@@ -43,7 +44,7 @@ export function validateRecord(input: Partial<LifeRecord>, theme: ThemeConfig): 
   return errors;
 }
 
-export function priorityFor(item: LifeRecord, today = localDay()): PlanEntry {
+export function priorityFor(item: LifeRecord, today = localDay(), focusCategory?: string): PlanEntry {
   const daysUntilDue = daysBetween(today, item.dueDate);
   const reasons: string[] = [];
   
@@ -107,15 +108,21 @@ export function priorityFor(item: LifeRecord, today = localDay()): PlanEntry {
     reasons.push("high community value");
   }
 
+  // Category Focus Boost
+  if (focusCategory && item.category === focusCategory) {
+    score += WEIGHTS.FOCUS_BOOST;
+    reasons.push(`focus: ${focusCategory}`);
+  }
+
   if (item.status === "done" || item.status === "archived") score = -1;
   if (reasons.length === 0) reasons.push("ranked by impact and effort");
 
   return { item, score: Math.round(score * 10) / 10, reasons, daysUntilDue };
 }
 
-export function buildPlan(items: readonly LifeRecord[], today = localDay()): PlanEntry[] {
+export function buildPlan(items: readonly LifeRecord[], today = localDay(), focusCategory?: string): PlanEntry[] {
   return items
-    .map((item) => priorityFor(item, today))
+    .map((item) => priorityFor(item, today, focusCategory))
     .filter((entry) => entry.item.status !== "done" && entry.item.status !== "archived")
     .sort((a, b) => b.score - a.score || a.item.dueDate.localeCompare(b.item.dueDate));
 }
