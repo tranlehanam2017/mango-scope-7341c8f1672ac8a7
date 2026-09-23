@@ -14,6 +14,7 @@ const WEIGHTS = {
   ACTIVE_BOOST: 1.25,
   CRITICAL_BOOST: 1.5,
   DISTANT_DECAY_MAX: 10, // Max penalty for items due far in the future
+  EFFICIENCY_BOOST: 15, // Bonus for high-impact, low-effort tasks
 };
 
 export function localDay(date = new Date()): string {
@@ -81,6 +82,14 @@ export function priorityFor(item: LifeRecord, today = localDay()): PlanEntry {
     const decay = Math.min(WEIGHTS.DISTANT_DECAY_MAX, Math.floor(daysUntilDue / 10));
     score -= decay;
     if (decay > 0) reasons.push("scheduled for future");
+  }
+
+  // Efficiency Ratio: Bonus for high impact relative to effort (Quick Wins)
+  // Impact 1-5 / Effort 1-480. A ratio > 0.1 (e.g. 3 impact / 20 mins) is a quick win.
+  const efficiency = item.impact / item.effort;
+  if (efficiency > 0.1) {
+    score += WEIGHTS.EFFICIENCY_BOOST;
+    reasons.push("quick win");
   }
 
   // Effort penalty: larger tasks are slightly deprioritized

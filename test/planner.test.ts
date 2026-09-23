@@ -78,6 +78,18 @@ describe("planning engine", () => {
       expect(priorityFor(highImpactOverdue, today).score).toBeGreaterThan(priorityFor(lowImpactOverdue, today).score);
       expect(priorityFor(highImpactOverdue, today).reasons).toContain("high-value overdue");
     });
+
+    it("boosts efficiency (quick wins)", () => {
+      const slow = item({ id: "slow", impact: 3, effort: 100 }); // ratio 0.03
+      const quick = item({ id: "quick", impact: 3, effort: 15 }); // ratio 0.2
+      const today = "2026-08-20";
+      
+      const scoreSlow = priorityFor(slow, today).score;
+      const scoreQuick = priorityFor(quick, today).score;
+      
+      expect(scoreQuick).toBeGreaterThan(scoreSlow);
+      expect(priorityFor(quick, today).reasons).toContain("quick win");
+    });
   });
 });
 
