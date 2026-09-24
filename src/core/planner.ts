@@ -15,6 +15,7 @@ const WEIGHTS = {
   AT_RISK_MULTIPLIER: 1.3, // Multiplier for high-impact overdue tasks
   CRITICAL_PATH_BOOST: 40, // Boost for high-impact items due today or tomorrow
   ACTIVE_BOOST: 1.25,
+  MOMENTUM_BOOST: 10, // Boost for items updated in the last 48 hours
   CRITICAL_BOOST: 1.5,
   DISTANT_DECAY_MAX: 10, // Max penalty for items due far in the future
   EFFICIENCY_BOOST: 15, // Bonus for high-impact, low-effort tasks
@@ -114,16 +115,25 @@ export function priorityFor(item: LifeRecord, today = localDay(), focusCategory?
   // Effort penalty: larger tasks are slightly deprioritized
   // Uses a non-linear penalty to avoid punishing medium tasks while still discouraging massive monoliths
   let effortPenalty = 0;
-  if (item.effort > 60) {
-    const excess = item.effort - 60;
+  if (item.effort > 90) {
+    const excess = item.effort - 90;
     // Penalty grows as square root of excess effort, capped at 20
-    effortPenalty = Math.min(20, Math.sqrt(excess) * 1.5);
+    effortPenalty = Math.min(20, Math.sqrt(excess) * 1.2);
   }
   score -= effortPenalty;
 
   if (item.status === "active") {
     score *= WEIGHTS.ACTIVE_BOOST;
     reasons.push("already in progress");
+
+    // Momentum Boost: Reward active items that have been recently touched
+    const lastUpdated = new Date(item.updatedAt);
+    const now = new Date();
+    const diffMs = now.getTime() - lastUpdated.getTime();
+    if (diffMs < 2 * 24 * 60 * 60 * 1000) {
+      score += WEIGHTS.MOMENTUM_BOOST;
+      reasons.push("recent momentum");
+    }
   }
 
   // Critical item boost: High impact items get a multiplier to prevent them from being buried by effort penalties
