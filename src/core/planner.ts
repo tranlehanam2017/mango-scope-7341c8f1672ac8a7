@@ -13,6 +13,7 @@ const WEIGHTS = {
   OVERDUE_INACTIVE_PENALTY: 10, // Penalty for overdue items not marked as active
   OVERDUE_IMPACT_MULTIPLIER: 5, // Extra weight per impact point for overdue items
   AT_RISK_MULTIPLIER: 1.3, // Multiplier for high-impact overdue tasks
+  CRITICAL_PATH_BOOST: 40, // Boost for high-impact items due today or tomorrow
   ACTIVE_BOOST: 1.25,
   CRITICAL_BOOST: 1.5,
   DISTANT_DECAY_MAX: 10, // Max penalty for items due far in the future
@@ -94,6 +95,12 @@ export function priorityFor(item: LifeRecord, today = localDay(), focusCategory?
     const decay = Math.min(WEIGHTS.DISTANT_DECAY_MAX, Math.floor(daysUntilDue / 10));
     score -= decay;
     if (decay > 0) reasons.push("scheduled for future");
+  }
+
+  // Critical Path Boost: High-impact items due in the next 48 hours
+  if (item.impact >= 4 && daysUntilDue >= 0 && daysUntilDue <= 1) {
+    score += WEIGHTS.CRITICAL_PATH_BOOST;
+    reasons.push("critical path item");
   }
 
   // Efficiency Ratio: Bonus for high impact relative to effort (Quick Wins)
