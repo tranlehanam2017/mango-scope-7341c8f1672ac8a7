@@ -124,6 +124,19 @@ describe("planning engine", () => {
       
       expect(scoreUnblocked).toBeGreaterThan(scoreBlocked);
     });
+
+    it("boosts tasks when others of same category are due soon", () => {
+      const today = "2026-08-20";
+      const itemA = item({ id: "a", category: "Food", dueDate: "2026-08-21" });
+      const itemB = item({ id: "b", category: "Food", dueDate: "2026-08-22" });
+      const itemC = item({ id: "c", category: "Education", dueDate: "2026-08-21" });
+      
+      const scoreWithBatch = priorityFor(itemA, today, undefined, [itemA, itemB]).score;
+      const scoreWithoutBatch = priorityFor(itemA, today, undefined, [itemA, itemC]).score;
+      
+      expect(scoreWithBatch).toBeGreaterThan(scoreWithoutBatch);
+      expect(priorityFor(itemA, today, undefined, [itemA, itemB]).reasons).toContain("batching: 1 similar tasks");
+    });
   });
 });
 

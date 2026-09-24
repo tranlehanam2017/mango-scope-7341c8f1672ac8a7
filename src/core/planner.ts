@@ -15,12 +15,13 @@ const WEIGHTS = {
   AT_RISK_MULTIPLIER: 1.3, // Multiplier for high-impact overdue tasks
   CRITICAL_PATH_BOOST: 40, // Boost for high-impact items due today or tomorrow
   ACTIVE_BOOST: 1.25,
-  MOMENTUM_BOOST: 10, // Boost for items updated in the last 48 hours
+  MOMENTUM_BOOST_MAX: 10, // Max boost for items updated just now
   CRITICAL_BOOST: 1.5,
   DISTANT_DECAY_MAX: 10, // Max penalty for items due far in the future
   EFFICIENCY_BOOST: 15, // Bonus for high-impact, low-effort tasks
   FOCUS_BOOST: 50, // Bonus for items matching the selected focus category
   DEPENDENCY_PENALTY: 100, // Significant penalty for blocked items
+  BATCHING_BONUS: 5, // Bonus per other item of the same category due soon
 };
 
 export function localDay(date = new Date()): string {
@@ -127,8 +128,12 @@ export function priorityFor(item: LifeRecord, today = localDay(), focusCategory?
     const lastUpdated = new Date(item.updatedAt);
     const now = new Date();
     const diffMs = now.getTime() - lastUpdated.getTime();
-    if (diffMs < 2 * 24 * 60 * 60 * 1000) {
-      score += WEIGHTS.MOMENTUM_BOOST;
+    const diffHours = diffMs / (1000 * 60 * 60);
+    
+    // Linear decay of momentum boost over 48 hours
+    if (diffHours < 48) {
+      const momentum = WEIGHTS.MOMENTUM_BOOST_MAX * (1 - diffHours / 48);
+      score += momentum;
       reasons.push("recent momentum");
     }
   }
@@ -149,6 +154,21 @@ export function priorityFor(item: LifeRecord, today = localDay(), focusCategory?
     if (dependency && dependency.status !== "done" && dependency.status !== "archived") {
       score -= WEIGHTS.DEPENDENCY_PENALTY;
       reasons.push(`blocked by: ${dependency.title}`);
+    }
+  }
+
+  // Batching Bonus: Encourage working on similar tasks if others in same category are due soon
+  if (allItems) {
+    const siblings = allItems.filter(r => 
+      r.id !== item.id && 
+      r.category === item.category && 
+      r.status !== "done" && 
+      r.status !== "archived" &&
+      Math.abs(daysBetween(today, r.dueDate)) <= 3
+    );
+    if (siblings.length > 0) {
+      score += siblings.length * WEIGHTS.BATCHING_BONUS;
+      reasons.push(`batching: ${siblings.length} similar tasks`);
     }
   }
 
