@@ -105,10 +105,12 @@ export function priorityFor(item: LifeRecord, today = localDay(), focusCategory?
   }
 
   // Effort penalty: larger tasks are slightly deprioritized
-  // Now uses a tiered approach to avoid over-penalizing medium tasks
+  // Uses a non-linear penalty to avoid punishing medium tasks while still discouraging massive monoliths
   let effortPenalty = 0;
   if (item.effort > 60) {
-    effortPenalty = Math.max(0, Math.min((item.effort - 60) / 15, 15));
+    const excess = item.effort - 60;
+    // Penalty grows as square root of excess effort, capped at 20
+    effortPenalty = Math.min(20, Math.sqrt(excess) * 1.5);
   }
   score -= effortPenalty;
 
