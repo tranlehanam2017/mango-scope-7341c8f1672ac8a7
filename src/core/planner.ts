@@ -20,6 +20,7 @@ const WEIGHTS = {
   DISTANT_DECAY_MAX: 10, // Max penalty for items due far in the future
   EFFICIENCY_BOOST: 15, // Bonus for high-impact, low-effort tasks
   FOCUS_BOOST: 50, // Bonus for items matching the selected focus category
+  DEPENDENCY_PENALTY: 100, // Significant penalty for blocked items
 };
 
 export function localDay(date = new Date()): string {
@@ -48,7 +49,7 @@ export function validateRecord(input: Partial<LifeRecord>, theme: ThemeConfig): 
   return errors;
 }
 
-export function priorityFor(item: LifeRecord, today = localDay(), focusCategory?: string): PlanEntry {
+export function priorityFor(item: LifeRecord, today = localDay(), focusCategory?: string, allItems?: readonly LifeRecord[]): PlanEntry {
   const daysUntilDue = daysBetween(today, item.dueDate);
   const reasons: string[] = [];
   
@@ -105,7 +106,6 @@ export function priorityFor(item: LifeRecord, today = localDay(), focusCategory?
   }
 
   // Efficiency Ratio: Bonus for high impact relative to effort (Quick Wins)
-  // Impact 1-5 / Effort 1-480. A ratio > 0.1 (e.g. 3 impact / 20 mins) is a quick win.
   const efficiency = item.impact / item.effort;
   if (efficiency > 0.1) {
     score += WEIGHTS.EFFICIENCY_BOOST;
@@ -113,11 +113,9 @@ export function priorityFor(item: LifeRecord, today = localDay(), focusCategory?
   }
 
   // Effort penalty: larger tasks are slightly deprioritized
-  // Uses a non-linear penalty to avoid punishing medium tasks while still discouraging massive monoliths
   let effortPenalty = 0;
   if (item.effort > 90) {
     const excess = item.effort - 90;
-    // Penalty grows as square root of excess effort, capped at 20
     effortPenalty = Math.min(20, Math.sqrt(excess) * 1.2);
   }
   score -= effortPenalty;
@@ -126,7 +124,6 @@ export function priorityFor(item: LifeRecord, today = localDay(), focusCategory?
     score *= WEIGHTS.ACTIVE_BOOST;
     reasons.push("already in progress");
 
-    // Momentum Boost: Reward active items that have been recently touched
     const lastUpdated = new Date(item.updatedAt);
     const now = new Date();
     const diffMs = now.getTime() - lastUpdated.getTime();
@@ -136,16 +133,23 @@ export function priorityFor(item: LifeRecord, today = localDay(), focusCategory?
     }
   }
 
-  // Critical item boost: High impact items get a multiplier to prevent them from being buried by effort penalties
   if (item.impact >= 5) {
     score *= WEIGHTS.CRITICAL_BOOST;
     reasons.push("high community value");
   }
 
-  // Category Focus Boost
   if (focusCategory && item.category === focusCategory) {
     score += WEIGHTS.FOCUS_BOOST;
     reasons.push(`focus: ${focusCategory}`);
+  }
+
+  // Dependency Penalty: If this item depends on another that isn't finished, penalize score
+  if (item.dependsOn && allItems) {
+    const dependency = allItems.find(r => r.id === item.dependsOn);
+    if (dependency && dependency.status !== "done" && dependency.status !== "archived") {
+      score -= WEIGHTS.DEPENDENCY_PENALTY;
+      reasons.push(`blocked by: ${dependency.title}`);
+    }
   }
 
   if (item.status === "done" || item.status === "archived") score = -1;
@@ -156,7 +160,7 @@ export function priorityFor(item: LifeRecord, today = localDay(), focusCategory?
 
 export function buildPlan(items: readonly LifeRecord[], today = localDay(), focusCategory?: string): PlanEntry[] {
   return items
-    .map((item) => priorityFor(item, today, focusCategory))
+    .map((item) => priorityFor(item, today, focusCategory, items))
     .filter((entry) => entry.item.status !== "done" && entry.item.status !== "archived")
     .sort((a, b) => b.score - a.score || a.item.dueDate.localeCompare(b.item.dueDate));
 }

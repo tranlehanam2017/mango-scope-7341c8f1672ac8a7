@@ -11,6 +11,7 @@ export interface LifeRecord {
   notes: string;
   createdAt: string;
   updatedAt: string;
+  dependsOn?: string; // ID of the record that must be completed first
 }
 
 export interface ThemeConfig {

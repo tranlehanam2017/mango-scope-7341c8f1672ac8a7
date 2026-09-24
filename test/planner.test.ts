@@ -53,7 +53,6 @@ describe("planning engine", () => {
       const midImpact = item({ id: "mid", impact: 4 });
       const today = "2026-08-20";
       
-      // The gap should be more than just the base impact difference (5*20 vs 4*20)
       const diff = priorityFor(highImpact, today).score - priorityFor(midImpact, today).score;
       expect(diff).toBeGreaterThan(20);
     });
@@ -101,6 +100,29 @@ describe("planning engine", () => {
       
       expect(scoreFocused).toBeGreaterThan(scoreUnfocused);
       expect(priorityFor(focused, today, "Food").reasons).toContain("focus: Food");
+    });
+
+    it("penalizes blocked items", () => {
+      const parent = item({ id: "parent", status: "planned" });
+      const child = item({ id: "child", dependsOn: "parent" });
+      const today = "2026-08-20";
+      
+      const scoreUnblocked = priorityFor(item({ id: "unblocked" }), today).score;
+      const scoreBlocked = priorityFor(child, today, undefined, [parent, child]).score;
+      
+      expect(scoreBlocked).toBeLessThan(scoreUnblocked);
+      expect(priorityFor(child, today, undefined, [parent, child]).reasons).toContain(`blocked by: ${parent.title}`);
+    });
+
+    it("removes penalty when dependency is completed", () => {
+      const parent = item({ id: "parent", status: "done" });
+      const child = item({ id: "child", dependsOn: "parent" });
+      const today = "2026-08-20";
+      
+      const scoreBlocked = priorityFor(item({ id: "b", dependsOn: "p" }), today, undefined, [item({ id: "p", title: "P", status: "planned" })]).score;
+      const scoreUnblocked = priorityFor(child, today, undefined, [parent, child]).score;
+      
+      expect(scoreUnblocked).toBeGreaterThan(scoreBlocked);
     });
   });
 });
