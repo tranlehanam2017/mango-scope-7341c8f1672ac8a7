@@ -215,3 +215,19 @@ export function suggestDailyLoad(items: readonly LifeRecord[], minutesPerDay: nu
   }
   return days.map((day) => ({ ...day, overloaded: day.used > capacity }));
 }
+
+export function forecastBurnDown(items: readonly LifeRecord[], minutesPerDay: number, today = localDay()) {
+  const capacity = Math.max(1, minutesPerDay);
+  const pending = items.filter(i => i.status !== "done" && i.status !== "archived");
+  const totalEffort = pending.reduce((sum, i) => sum + i.effort, 0);
+  
+  const daysToComplete = Math.ceil(totalEffort / capacity);
+  const completionDate = new Date(Date.parse(`${today}T00:00:00Z`) + daysToComplete * DAY_MS).toISOString().slice(0, 10);
+
+  return {
+    totalEffort,
+    daysToComplete,
+    completionDate,
+    averageEffortPerItem: pending.length ? Math.round(totalEffort / pending.length) : 0
+  };
+}

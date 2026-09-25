@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { importJson } from "../src/core/exchange";
-import { buildPlan, daysBetween, priorityFor, suggestDailyLoad, summarize } from "../src/core/planner";
+import { buildPlan, daysBetween, priorityFor, suggestDailyLoad, summarize, forecastBurnDown } from "../src/core/planner";
 import { theme } from "../src/theme";
 import type { LifeRecord } from "../src/types";
 
@@ -136,6 +136,33 @@ describe("planning engine", () => {
       
       expect(scoreWithBatch).toBeGreaterThan(scoreWithoutBatch);
       expect(priorityFor(itemA, today, undefined, [itemA, itemB]).reasons).toContain("batching: 1 similar tasks");
+    });
+  });
+
+  describe("workload forecasting", () => {
+    it("correctly calculates completion date based on capacity", () => {
+      const items = [
+        item({ id: "1", effort: 60 }),
+        item({ id: "2", effort: 90 }),
+        item({ id: "3", effort: 60 }),
+      ];
+      const today = "2026-08-20";
+      const capacity = 100;
+      // Total 210. 210/100 = 2.1 -> 3 days. 20th + 3 = 23rd.
+      const forecast = forecastBurnDown(items, capacity, today);
+      expect(forecast.totalEffort).toBe(210);
+      expect(forecast.daysToComplete).toBe(3);
+      expect(forecast.completionDate).toBe("2026-08-23");
+    });
+
+    it("ignores completed items in forecast", () => {
+      const items = [
+        item({ id: "1", effort: 100, status: "done" }),
+        item({ id: "2", effort: 100, status: "planned" }),
+      ];
+      const forecast = forecastBurnDown(items, 100, "2026-08-20");
+      expect(forecast.totalEffort).toBe(100);
+      expect(forecast.daysToComplete).toBe(1);
     });
   });
 });
