@@ -22,6 +22,7 @@ const WEIGHTS = {
   FOCUS_BOOST: 50, // Bonus for items matching the selected focus category
   DEPENDENCY_PENALTY: 100, // Significant penalty for blocked items
   BATCHING_BONUS: 5, // Bonus per other item of the same category due soon
+  CAPACITY_FIT_BONUS: 12, // Bonus for tasks that fit well in standard blocks
 };
 
 export function localDay(date = new Date()): string {
@@ -113,11 +114,19 @@ export function priorityFor(item: LifeRecord, today = localDay(), focusCategory?
     reasons.push("quick win");
   }
 
-  // Effort penalty: larger tasks are slightly deprioritized
+  // Capacity Fit: Small bonus for items that align with common work blocks (e.g., 15, 30, 60, 90 mins)
+  const commonBlocks = [15, 30, 45, 60, 90, 120];
+  if (commonBlocks.includes(item.effort)) {
+    score += WEIGHTS.CAPACITY_FIT_BONUS;
+    reasons.push("optimal time block");
+  }
+
+  // Effort penalty: progressive penalty for very large tasks to prevent them from blocking the list
   let effortPenalty = 0;
-  if (item.effort > 90) {
-    const excess = item.effort - 90;
-    effortPenalty = Math.min(20, Math.sqrt(excess) * 1.2);
+  if (item.effort > 60) {
+    const excess = item.effort - 60;
+    // Use a log-like growth for the penalty so it doesn't scale linearly with effort
+    effortPenalty = Math.min(30, Math.log2(excess + 1) * 4);
   }
   score -= effortPenalty;
 
