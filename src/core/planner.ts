@@ -199,17 +199,26 @@ export function summarize(items: readonly LifeRecord[], today = localDay()): Pla
   }, { total: 0, completed: 0, overdue: 0, dueSoon: 0, effort: 0, byCategory: {} });
 }
 
-export function suggestDailyLoad(items: readonly LifeRecord[], minutesPerDay: number, today = localDay()) {
+export function suggestDailyLoad(items: readonly LifeRecord[], minutesPerDay: number, today = localDay(), saturate = false) {
   const capacity = Math.max(1, minutesPerDay);
   const days = Array.from({ length: 7 }, (_, offset) => ({
     date: new Date(Date.parse(`${today}T00:00:00Z`) + offset * DAY_MS).toISOString().slice(0, 10),
     used: 0,
     entries: [] as PlanEntry[],
   }));
-  for (const entry of buildPlan(items, today)) {
-    const candidates = days.filter((day, index) => index <= Math.max(0, Math.min(6, entry.daysUntilDue)));
+
+  const plan = buildPlan(items, today);
+
+  for (const entry of plan) {
+    // If saturating, we prioritize high-score items even if they are due later, as long as they fit
+    // If not saturating, we try to keep items near their due date
+    const candidates = saturate 
+      ? days.filter(d => d.used + entry.item.effort <= capacity * 1.2)
+      : days.filter((day, index) => index <= Math.max(0, Math.min(6, entry.daysUntilDue)) && day.used + entry.item.effort <= capacity * 1.1);
+
     const target = (candidates.length > 0 ? candidates : days).sort((a, b) => a.used - b.used)[0];
     if (!target) continue;
+    
     target.entries.push(entry);
     target.used += entry.item.effort;
   }
