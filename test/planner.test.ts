@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { importJson } from "../src/core/exchange";
-import { buildPlan, daysBetween, priorityFor, suggestDailyLoad, summarize, forecastBurnDown } from "../src/core/planner";
+import { buildPlan, daysBetween, priorityFor, suggestDailyLoad, summarize, forecastBurnDown, analyzeEisenhower } from "../src/core/planner";
 import { theme } from "../src/theme";
 import type { LifeRecord } from "../src/types";
 
@@ -163,6 +163,22 @@ describe("planning engine", () => {
       const forecast = forecastBurnDown(items, 100, "2026-08-20");
       expect(forecast.totalEffort).toBe(100);
       expect(forecast.daysToComplete).toBe(1);
+    });
+  });
+
+  describe("Eisenhower Analysis", () => {
+    const today = "2026-08-20";
+    it("categorizes Urgent & Important as DO_FIRST", () => {
+      expect(analyzeEisenhower(item({ dueDate: "2026-08-21", impact: 5 }), today)).toBe("DO_FIRST");
+    });
+    it("categorizes Not Urgent & Important as SCHEDULE", () => {
+      expect(analyzeEisenhower(item({ dueDate: "2026-08-25", impact: 5 }), today)).toBe("SCHEDULE");
+    });
+    it("categorizes Urgent & Not Important as DELEGATE", () => {
+      expect(analyzeEisenhower(item({ dueDate: "2026-08-21", impact: 2 }), today)).toBe("DELEGATE");
+    });
+    it("categorizes Not Urgent & Not Important as ELIMINATE", () => {
+      expect(analyzeEisenhower(item({ dueDate: "2026-08-25", impact: 2 }), today)).toBe("ELIMINATE");
     });
   });
 });

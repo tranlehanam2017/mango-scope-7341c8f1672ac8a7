@@ -249,3 +249,16 @@ export function forecastBurnDown(items: readonly LifeRecord[], minutesPerDay: nu
     averageEffortPerItem: pending.length ? Math.round(totalEffort / pending.length) : 0
   };
 }
+
+export type EisenhowerQuadrant = "DO_FIRST" | "SCHEDULE" | "DELEGATE" | "ELIMINATE";
+
+export function analyzeEisenhower(item: LifeRecord, today = localDay()): EisenhowerQuadrant {
+  const daysUntilDue = daysBetween(today, item.dueDate);
+  const isUrgent = daysUntilDue <= 2;
+  const isImportant = item.impact >= 4;
+
+  if (isUrgent && isImportant) return "DO_FIRST";
+  if (!isUrgent && isImportant) return "SCHEDULE";
+  if (isUrgent && !isImportant) return "DELEGATE";
+  return "ELIMINATE";
+}
