@@ -108,8 +108,9 @@ export function priorityFor(item: LifeRecord, today = localDay(), focusCategory?
   }
 
   // Efficiency Ratio: Bonus for high impact relative to effort (Quick Wins)
+  // Adjusted threshold from 0.1 to 0.15 to be more selective about 'quick wins'
   const efficiency = item.impact / item.effort;
-  if (efficiency > 0.1) {
+  if (efficiency > 0.15) {
     score += WEIGHTS.EFFICIENCY_BOOST;
     reasons.push("quick win");
   }
