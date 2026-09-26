@@ -267,13 +267,26 @@ export function forecastBurnDown(items: readonly LifeRecord[], minutesPerDay: nu
   const riskDays = Math.ceil(riskEffort / capacity);
   const riskCompletionDate = new Date(Date.parse(`${today}T00:00:00Z`) + riskDays * DAY_MS).toISOString().slice(0, 10);
 
+  // Volatility analysis: calculate the variance of effort to understand scheduling unpredictability
+  const meanEffort = pending.length ? totalEffort / pending.length : 0;
+  const variance = pending.length ? pending.reduce((sum, i) => sum + Math.pow(i.effort - meanEffort, 2), 0) / pending.length : 0;
+  const stdDev = Math.sqrt(variance);
+  
+  // A 'volatile' estimate adds 1 standard deviation to the total effort for conservative planning
+  const volatileEffort = totalEffort + stdDev;
+  const volatileDays = Math.ceil(volatileEffort / capacity);
+  const volatileCompletionDate = new Date(Date.parse(`${today}T00:00:00Z`) + volatileDays * DAY_MS).toISOString().slice(0, 10);
+
   return {
     totalEffort,
     daysToComplete,
     completionDate,
     riskDays,
     riskCompletionDate,
-    averageEffortPerItem: pending.length ? Math.round(totalEffort / pending.length) : 0
+    volatileDays,
+    volatileCompletionDate,
+    averageEffortPerItem: pending.length ? Math.round(totalEffort / pending.length) : 0,
+    volatilityScore: pending.length ? Math.round((stdDev / meanEffort) * 100) : 0
   };
 }
 
