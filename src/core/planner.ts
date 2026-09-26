@@ -24,6 +24,7 @@ const WEIGHTS = {
   BATCHING_BONUS: 5, // Bonus per other item of the same category due soon
   CAPACITY_FIT_BONUS: 12, // Bonus for tasks that fit well in standard blocks
   DIMENSION_WEIGHT: 12, // Base weight for each additional impact dimension
+  STABILITY_THRESHOLD: 0.5, // Minimum score diff to trigger a rank change
 };
 
 export function localDay(date = new Date()): string {
@@ -202,10 +203,18 @@ export function priorityFor(item: LifeRecord, today = localDay(), focusCategory?
 }
 
 export function buildPlan(items: readonly LifeRecord[], today = localDay(), focusCategory?: string): PlanEntry[] {
-  return items
+  const entries = items
     .map((item) => priorityFor(item, today, focusCategory, items))
-    .filter((entry) => entry.item.status !== "done" && entry.item.status !== "archived")
-    .sort((a, b) => b.score - a.score || a.item.dueDate.localeCompare(b.item.dueDate));
+    .filter((entry) => entry.item.status !== "done" && entry.item.status !== "archived");
+
+  return entries.sort((a, b) => {
+    const diff = b.score - a.score;
+    // Stability buffer: only flip rank if score difference exceeds threshold
+    if (Math.abs(diff) < WEIGHTS.STABILITY_THRESHOLD) {
+      return a.item.dueDate.localeCompare(b.item.dueDate);
+    }
+    return diff || a.item.dueDate.localeCompare(b.item.dueDate);
+  });
 }
 
 export function summarize(items: readonly LifeRecord[], today = localDay()): PlanSummary {
