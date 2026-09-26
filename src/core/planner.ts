@@ -210,7 +210,9 @@ export function summarize(items: readonly LifeRecord[], today = localDay()): Pla
 }
 
 export function suggestDailyLoad(items: readonly LifeRecord[], minutesPerDay: number, today = localDay(), saturate = false) {
-  const capacity = Math.max(1, minutesPerDay);
+  const softCapacity = Math.max(1, minutesPerDay);
+  const hardCapacity = softCapacity * 1.3; // Allow 30% overhead for critical items
+  
   const days = Array.from({ length: 7 }, (_, offset) => ({
     date: new Date(Date.parse(`${today}T00:00:00Z`) + offset * DAY_MS).toISOString().slice(0, 10),
     used: 0,
@@ -220,19 +222,32 @@ export function suggestDailyLoad(items: readonly LifeRecord[], minutesPerDay: nu
   const plan = buildPlan(items, today);
 
   for (const entry of plan) {
-    // If saturating, we prioritize high-score items even if they are due later, as long as they fit
-    // If not saturating, we try to keep items near their due date
+    // Priority 1: Fit within soft capacity and within the due-date window
+    // Priority 2: Fit within hard capacity (overload)
     const candidates = saturate 
-      ? days.filter(d => d.used + entry.item.effort <= capacity * 1.2)
-      : days.filter((day, index) => index <= Math.max(0, Math.min(6, entry.daysUntilDue)) && day.used + entry.item.effort <= capacity * 1.1);
+      ? days.filter(d => d.used + entry.item.effort <= hardCapacity)
+      : days.filter((day, index) => 
+          index <= Math.max(0, Math.min(6, entry.daysUntilDue)) && 
+          day.used + entry.item.effort <= hardCapacity
+        );
 
-    const target = (candidates.length > 0 ? candidates : days).sort((a, b) => a.used - b.used)[0];
-    if (!target) continue;
+    if (candidates.length === 0) continue;
+
+    // Favor days that haven't hit the soft capacity yet
+    const target = candidates.sort((a, b) => {
+      const aUnder = a.used < softCapacity ? 0 : 1;
+      const bUnder = b.used < softCapacity ? 0 : 1;
+      return aUnder - bUnder || a.used - b.used;
+    })[0];
     
     target.entries.push(entry);
     target.used += entry.item.effort;
   }
-  return days.map((day) => ({ ...day, overloaded: day.used > capacity }));
+  return days.map((day) => ({
+    ...day,
+    overloaded: day.used > softCapacity,
+    criticalOverload: day.used > hardCapacity
+  }));
 }
 
 export function forecastBurnDown(items: readonly LifeRecord[], minutesPerDay: number, today = localDay()) {
