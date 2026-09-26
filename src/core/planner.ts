@@ -23,6 +23,7 @@ const WEIGHTS = {
   DEPENDENCY_PENALTY: 100, // Significant penalty for blocked items
   BATCHING_BONUS: 5, // Bonus per other item of the same category due soon
   CAPACITY_FIT_BONUS: 12, // Bonus for tasks that fit well in standard blocks
+  DIMENSION_WEIGHT: 12, // Base weight for each additional impact dimension
 };
 
 export function localDay(date = new Date()): string {
@@ -57,6 +58,18 @@ export function priorityFor(item: LifeRecord, today = localDay(), focusCategory?
   
   // Base score from impact
   let score = item.impact * WEIGHTS.IMPACT;
+
+  // Multi-dimensional impact boost
+  if (item.impactDimensions) {
+    const dimCount = Object.keys(item.impactDimensions).length;
+    const dimSum = Object.values(item.impactDimensions).reduce((a, b) => a + b, 0);
+    
+    if (dimCount > 0) {
+      const dimBoost = (dimSum * WEIGHTS.DIMENSION_WEIGHT) / (dimCount || 1);
+      score += dimBoost;
+      reasons.push("multi-dimensional value");
+    }
+  }
   
   if (daysUntilDue < 0) {
     const absDays = Math.abs(daysUntilDue);

@@ -12,6 +12,7 @@ export interface LifeRecord {
   createdAt: string;
   updatedAt: string;
   dependsOn?: string; // ID of the record that must be completed first
+  impactDimensions?: Record<string, number>; // Extra nuanced impact multipliers
 }
 
 export interface ThemeConfig {
