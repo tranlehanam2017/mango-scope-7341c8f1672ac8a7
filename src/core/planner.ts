@@ -240,13 +240,24 @@ export function forecastBurnDown(items: readonly LifeRecord[], minutesPerDay: nu
   const pending = items.filter(i => i.status !== "done" && i.status !== "archived");
   const totalEffort = pending.reduce((sum, i) => sum + i.effort, 0);
   
+  // Base linear estimate
   const daysToComplete = Math.ceil(totalEffort / capacity);
   const completionDate = new Date(Date.parse(`${today}T00:00:00Z`) + daysToComplete * DAY_MS).toISOString().slice(0, 10);
+
+  // Risk adjustment: high-effort tasks (> 120 mins) are treated as having a 20% buffer
+  // to account for fragmentation or unexpected complexity.
+  const riskEffort = pending.reduce((sum, i) => {
+    return sum + (i.effort > 120 ? i.effort * 1.2 : i.effort);
+  }, 0);
+  const riskDays = Math.ceil(riskEffort / capacity);
+  const riskCompletionDate = new Date(Date.parse(`${today}T00:00:00Z`) + riskDays * DAY_MS).toISOString().slice(0, 10);
 
   return {
     totalEffort,
     daysToComplete,
     completionDate,
+    riskDays,
+    riskCompletionDate,
     averageEffortPerItem: pending.length ? Math.round(totalEffort / pending.length) : 0
   };
 }
