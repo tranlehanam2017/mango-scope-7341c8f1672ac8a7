@@ -264,7 +264,8 @@ export function suggestDailyLoad(items: readonly LifeRecord[], minutesPerDay: nu
     const target = candidates.sort((a, b) => {
       const aUnder = a.used < softCapacity ? 0 : 1;
       const bUnder = b.used < softCapacity ? 0 : 1;
-      return aUnder - bUnder || a.used - b.used;
+      if (aUnder !== bUnder) return aUnder - bUnder;
+      return a.used - b.used;
     })[0];
     
     target.entries.push(entry);
