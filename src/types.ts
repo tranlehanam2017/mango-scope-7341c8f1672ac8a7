@@ -1,5 +1,7 @@
 export type ItemStatus = "planned" | "active" | "done" | "archived";
 
+export type EnergyLevel = "high" | "medium" | "low";
+
 export interface LifeRecord {
   id: string;
   title: string;
@@ -13,6 +15,7 @@ export interface LifeRecord {
   updatedAt: string;
   dependsOn?: string; // ID of the record that must be completed first
   impactDimensions?: Record<string, number>; // Extra nuanced impact multipliers
+  preferredEnergy?: EnergyLevel; // Hint for when to schedule this task
 }
 
 export interface ThemeConfig {
