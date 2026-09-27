@@ -25,6 +25,8 @@ const WEIGHTS = {
   CAPACITY_FIT_BONUS: 12, // Bonus for tasks that fit well in standard blocks
   DIMENSION_WEIGHT: 12, // Base weight for each additional impact dimension
   STABILITY_THRESHOLD: 0.5, // Minimum score diff to trigger a rank change
+  STALE_DECAY_START: 30, // Days after which overdue items start losing priority
+  STALE_DECAY_RATE: 2,   // Penalty per day after STALE_DECAY_START
 };
 
 export function localDay(date = new Date()): string {
@@ -99,6 +101,15 @@ export function priorityFor(item: LifeRecord, today = localDay(), focusCategory?
       score *= WEIGHTS.AT_RISK_MULTIPLIER;
       reasons.push("at-risk critical");
     }
+
+    // Long-term decay: if a task is extremely overdue and not active, it's likely stale.
+    // Gradually reduce priority so the list isn't permanently clogged with old, ignored tasks.
+    if (absDays > WEIGHTS.STALE_DECAY_START && item.status !== "active") {
+      const staleDays = absDays - WEIGHTS.STALE_DECAY_START;
+      const decay = staleDays * WEIGHTS.STALE_DECAY_RATE;
+      score -= decay;
+      reasons.push(`stale decay (-${decay})`);
+    }
   } else if (daysUntilDue === 0) {
     score += WEIGHTS.URGENCY_TODAY;
     reasons.push("urgent: due today");
@@ -122,25 +133,23 @@ export function priorityFor(item: LifeRecord, today = localDay(), focusCategory?
   }
 
   // Efficiency Ratio: Bonus for high impact relative to effort (Quick Wins)
-  // Adjusted threshold from 0.1 to 0.15 to be more selective about 'quick wins'
   const efficiency = item.impact / item.effort;
   if (efficiency > 0.15) {
     score += WEIGHTS.EFFICIENCY_BOOST;
     reasons.push("quick win");
   }
 
-  // Capacity Fit: Small bonus for items that align with common work blocks (e.g., 15, 30, 60, 90 mins)
+  // Capacity Fit: Small bonus for items that align with common work blocks
   const commonBlocks = [15, 30, 45, 60, 90, 120];
   if (commonBlocks.includes(item.effort)) {
     score += WEIGHTS.CAPACITY_FIT_BONUS;
     reasons.push("optimal time block");
   }
 
-  // Effort penalty: progressive penalty for very large tasks to prevent them from blocking the list
+  // Effort penalty: progressive penalty for very large tasks
   let effortPenalty = 0;
   if (item.effort > 60) {
     const excess = item.effort - 60;
-    // Use a log-like growth for the penalty so it doesn't scale linearly with effort
     effortPenalty = Math.min(30, Math.log2(excess + 1) * 4);
   }
   score -= effortPenalty;
@@ -154,7 +163,6 @@ export function priorityFor(item: LifeRecord, today = localDay(), focusCategory?
     const diffMs = now.getTime() - lastUpdated.getTime();
     const diffHours = diffMs / (1000 * 60 * 60);
     
-    // Linear decay of momentum boost over 48 hours
     if (diffHours < 48) {
       const momentum = WEIGHTS.MOMENTUM_BOOST_MAX * (1 - diffHours / 48);
       score += momentum;
@@ -172,7 +180,7 @@ export function priorityFor(item: LifeRecord, today = localDay(), focusCategory?
     reasons.push(`focus: ${focusCategory}`);
   }
 
-  // Dependency Penalty: If this item depends on another that isn't finished, penalize score
+  // Dependency Penalty
   if (item.dependsOn && allItems) {
     const dependency = allItems.find(r => r.id === item.dependsOn);
     if (dependency && dependency.status !== "done" && dependency.status !== "archived") {
@@ -181,7 +189,7 @@ export function priorityFor(item: LifeRecord, today = localDay(), focusCategory?
     }
   }
 
-  // Batching Bonus: Encourage working on similar tasks if others in same category are due soon
+  // Batching Bonus
   if (allItems) {
     const siblings = allItems.filter(r => 
       r.id !== item.id && 
@@ -209,7 +217,6 @@ export function buildPlan(items: readonly LifeRecord[], today = localDay(), focu
 
   return entries.sort((a, b) => {
     const diff = b.score - a.score;
-    // Stability buffer: only flip rank if score difference exceeds threshold
     if (Math.abs(diff) < WEIGHTS.STABILITY_THRESHOLD) {
       return a.item.dueDate.localeCompare(b.item.dueDate);
     }
@@ -233,7 +240,7 @@ export function summarize(items: readonly LifeRecord[], today = localDay()): Pla
 
 export function suggestDailyLoad(items: readonly LifeRecord[], minutesPerDay: number, today = localDay(), saturate = false) {
   const softCapacity = Math.max(1, minutesPerDay);
-  const hardCapacity = softCapacity * 1.3; // Allow 30% overhead for critical items
+  const hardCapacity = softCapacity * 1.3;
   
   const days = Array.from({ length: 7 }, (_, offset) => ({
     date: new Date(Date.parse(`${today}T00:00:00Z`) + offset * DAY_MS).toISOString().slice(0, 10),
@@ -244,8 +251,6 @@ export function suggestDailyLoad(items: readonly LifeRecord[], minutesPerDay: nu
   const plan = buildPlan(items, today);
 
   for (const entry of plan) {
-    // Priority 1: Fit within soft capacity and within the due-date window
-    // Priority 2: Fit within hard capacity (overload)
     const candidates = saturate 
       ? days.filter(d => d.used + entry.item.effort <= hardCapacity)
       : days.filter((day, index) => 
@@ -255,7 +260,6 @@ export function suggestDailyLoad(items: readonly LifeRecord[], minutesPerDay: nu
 
     if (candidates.length === 0) continue;
 
-    // Favor days that haven't hit the soft capacity yet
     const target = candidates.sort((a, b) => {
       const aUnder = a.used < softCapacity ? 0 : 1;
       const bUnder = b.used < softCapacity ? 0 : 1;
@@ -277,24 +281,19 @@ export function forecastBurnDown(items: readonly LifeRecord[], minutesPerDay: nu
   const pending = items.filter(i => i.status !== "done" && i.status !== "archived");
   const totalEffort = pending.reduce((sum, i) => sum + i.effort, 0);
   
-  // Base linear estimate
   const daysToComplete = Math.ceil(totalEffort / capacity);
   const completionDate = new Date(Date.parse(`${today}T00:00:00Z`) + daysToComplete * DAY_MS).toISOString().slice(0, 10);
 
-  // Risk adjustment: high-effort tasks (> 120 mins) are treated as having a 20% buffer
-  // to account for fragmentation or unexpected complexity.
   const riskEffort = pending.reduce((sum, i) => {
     return sum + (i.effort > 120 ? i.effort * 1.2 : i.effort);
   }, 0);
   const riskDays = Math.ceil(riskEffort / capacity);
   const riskCompletionDate = new Date(Date.parse(`${today}T00:00:00Z`) + riskDays * DAY_MS).toISOString().slice(0, 10);
 
-  // Volatility analysis: calculate the variance of effort to understand scheduling unpredictability
   const meanEffort = pending.length ? totalEffort / pending.length : 0;
   const variance = pending.length ? pending.reduce((sum, i) => sum + Math.pow(i.effort - meanEffort, 2), 0) / pending.length : 0;
   const stdDev = Math.sqrt(variance);
   
-  // A 'volatile' estimate adds 1 standard deviation to the total effort for conservative planning
   const volatileEffort = totalEffort + stdDev;
   const volatileDays = Math.ceil(volatileEffort / capacity);
   const volatileCompletionDate = new Date(Date.parse(`${today}T00:00:00Z`) + volatileDays * DAY_MS).toISOString().slice(0, 10);

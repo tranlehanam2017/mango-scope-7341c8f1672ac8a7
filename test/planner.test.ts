@@ -137,6 +137,19 @@ describe("planning engine", () => {
       expect(scoreWithBatch).toBeGreaterThan(scoreWithoutBatch);
       expect(priorityFor(itemA, today, undefined, [itemA, itemB]).reasons).toContain("batching: 1 similar tasks");
     });
+
+    it("applies decay to stale overdue items", () => {
+      const today = "2026-08-20";
+      const recentOverdue = item({ id: "recent", dueDate: "2026-08-15", status: "planned" });
+      const staleOverdue = item({ id: "stale", dueDate: "2026-07-01", status: "planned" });
+      
+      const scoreRecent = priorityFor(recentOverdue, today).score;
+      const scoreStale = priorityFor(staleOverdue, today).score;
+      
+      // While both are overdue, the stale one should eventually be penalized
+      // to prevent it from forever dominating the list if it's been ignored for months.
+      expect(priorityFor(staleOverdue, today).reasons.some(r => r.includes("stale decay"))).toBe(true);
+    });
   });
 
   describe("workload forecasting", () => {
