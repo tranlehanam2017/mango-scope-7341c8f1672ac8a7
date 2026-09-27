@@ -16,6 +16,7 @@ export interface LifeRecord {
   dependsOn?: string; // ID of the record that must be completed first
   impactDimensions?: Record<string, number>; // Extra nuanced impact multipliers
   preferredEnergy?: EnergyLevel; // Hint for when to schedule this task
+  postponedCount?: number; // Number of times the due date was pushed forward
 }
 
 export interface ThemeConfig {

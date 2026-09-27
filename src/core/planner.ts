@@ -27,6 +27,8 @@ const WEIGHTS = {
   STABILITY_THRESHOLD: 0.5, // Minimum score diff to trigger a rank change
   STALE_DECAY_START: 30, // Days after which overdue items start losing priority
   STALE_DECAY_RATE: 2,   // Penalty per day after STALE_DECAY_START
+  POSTPONE_PENALTY: 8,   // Penalty per time the item was pushed forward
+  POSTPONE_THRESHOLD: 3,  // When churn penalty starts applying
 };
 
 export function localDay(date = new Date()): string {
@@ -202,6 +204,13 @@ export function priorityFor(item: LifeRecord, today = localDay(), focusCategory?
       score += siblings.length * WEIGHTS.BATCHING_BONUS;
       reasons.push(`batching: ${siblings.length} similar tasks`);
     }
+  }
+
+  // Churn Penalty: Penalize items that have been postponed multiple times
+  if (item.postponedCount && item.postponedCount >= WEIGHTS.POSTPONE_THRESHOLD) {
+    const churnPenalty = (item.postponedCount - WEIGHTS.POSTPONE_THRESHOLD + 1) * WEIGHTS.POSTPONE_PENALTY;
+    score -= churnPenalty;
+    reasons.push(`postponed ${item.postponedCount}x`);
   }
 
   if (item.status === "done" || item.status === "archived") score = -1;
