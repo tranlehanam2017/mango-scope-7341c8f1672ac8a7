@@ -205,6 +205,10 @@ export function priorityFor(item: LifeRecord, today = localDay(), focusCategory?
   }
 
   if (item.status === "done" || item.status === "archived") score = -1;
+  if (item.status === "stale") {
+    score -= 100; // Significant deprioritization for explicitly stale items
+    reasons.push("marked as stale");
+  }
   if (reasons.length === 0) reasons.push("ranked by impact and effort");
 
   return { item, score: Math.round(score * 10) / 10, reasons, daysUntilDue };

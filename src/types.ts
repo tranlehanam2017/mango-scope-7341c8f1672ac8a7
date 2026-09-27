@@ -1,4 +1,4 @@
-export type ItemStatus = "planned" | "active" | "done" | "archived";
+export type ItemStatus = "planned" | "active" | "stale" | "done" | "archived";
 
 export type EnergyLevel = "high" | "medium" | "low";
 
