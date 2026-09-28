@@ -296,6 +296,12 @@ export function suggestDailyLoad(items: readonly LifeRecord[], minutesPerDay: nu
     if (candidates.length === 0) continue;
 
     const target = candidates.sort((a, b) => {
+      if (entry.item.preferredEnergy) {
+        const aEnergy = a.energyDistribution[entry.item.preferredEnergy];
+        const bEnergy = b.energyDistribution[entry.item.preferredEnergy];
+        if (aEnergy !== bEnergy) return aEnergy - bEnergy;
+      }
+
       const aUnder = a.used < softCapacity ? 0 : 1;
       const bUnder = b.used < softCapacity ? 0 : 1;
       if (aUnder !== bUnder) return aUnder - bUnder;
@@ -347,6 +353,25 @@ export function forecastBurnDown(items: readonly LifeRecord[], minutesPerDay: nu
     volatileCompletionDate,
     averageEffortPerItem: pending.length ? Math.round(totalEffort / pending.length) : 0,
     volatilityScore: pending.length ? Math.round((stdDev / meanEffort) * 100) : 0
+  };
+}
+
+export function forecastBurnUp(items: readonly LifeRecord[], minutesPerDay: number, today = localDay()) {
+  const capacity = Math.max(1, minutesPerDay);
+  const totalProjectEffort = items.reduce((sum, i) => sum + i.effort, 0);
+  const completedEffort = items.filter(i => i.status === "done" || i.status === "archived").reduce((sum, i) => sum + i.effort, 0);
+  const pendingEffort = totalProjectEffort - completedEffort;
+  
+  const daysToComplete = Math.ceil(pendingEffort / capacity);
+  const completionDate = new Date(Date.parse(`${today}T00:00:00Z`) + daysToComplete * DAY_MS).toISOString().slice(0, 10);
+
+  return {
+    totalProjectEffort,
+    completedEffort,
+    pendingEffort,
+    daysToComplete,
+    completionDate,
+    progressPercent: totalProjectEffort ? Math.round((completedEffort / totalProjectEffort) * 100) : 0
   };
 }
 
