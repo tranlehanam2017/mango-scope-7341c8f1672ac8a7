@@ -296,15 +296,20 @@ export function suggestDailyLoad(items: readonly LifeRecord[], minutesPerDay: nu
     if (candidates.length === 0) continue;
 
     const target = candidates.sort((a, b) => {
+      // Primary: Energy Alignment
       if (entry.item.preferredEnergy) {
         const aEnergy = a.energyDistribution[entry.item.preferredEnergy];
         const bEnergy = b.energyDistribution[entry.item.preferredEnergy];
+        // Favor the day with less of this specific energy type currently allocated
         if (aEnergy !== bEnergy) return aEnergy - bEnergy;
       }
 
+      // Secondary: Capacity Balance
       const aUnder = a.used < softCapacity ? 0 : 1;
       const bUnder = b.used < softCapacity ? 0 : 1;
       if (aUnder !== bUnder) return aUnder - bUnder;
+      
+      // Tertiary: Least used overall
       return a.used - b.used;
     })[0];
     
