@@ -362,3 +362,31 @@ export function analyzeEisenhower(item: LifeRecord, today = localDay()): Eisenho
   if (isUrgent && !isImportant) return "DELEGATE";
   return "ELIMINATE";
 }
+
+export interface RecordFilter {
+  search?: string;
+  category?: string;
+  status?: ItemStatus | ItemStatus[];
+  minImpact?: number;
+  maxEffort?: number;
+  overdueOnly?: boolean;
+}
+
+export function filterRecords(items: readonly LifeRecord[], filter: RecordFilter, today = localDay()): LifeRecord[] {
+  return items.filter(item => {
+    if (filter.search) {
+      const s = filter.search.toLowerCase();
+      if (!item.title.toLowerCase().includes(s) && !item.notes.toLowerCase().includes(s)) return false;
+    }
+    if (filter.category && item.category !== filter.category) return false;
+    if (filter.status) {
+      const statuses = Array.isArray(filter.status) ? filter.status : [filter.status];
+      if (!statuses.includes(item.status)) return false;
+    }
+    if (filter.minImpact !== undefined && item.impact < filter.minImpact) return false;
+    if (filter.maxEffort !== undefined && item.effort > filter.maxEffort) return false;
+    if (filter.overdueOnly && daysBetween(today, item.dueDate) >= 0) return false;
+    
+    return true;
+  });
+}
