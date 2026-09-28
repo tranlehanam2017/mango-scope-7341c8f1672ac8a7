@@ -43,6 +43,18 @@ export function daysBetween(from: string, to: string): number {
   return Math.round((end - start) / DAY_MS);
 }
 
+export function snoozeRecord(item: LifeRecord, days: number): LifeRecord {
+  const currentDue = new Date(`${item.dueDate}T00:00:00Z`);
+  currentDue.setUTCDate(currentDue.getUTCDate() + days);
+  
+  return {
+    ...item,
+    dueDate: currentDue.toISOString().slice(0, 10),
+    postponedCount: (item.postponedCount ?? 0) + 1,
+    updatedAt: new Date().toISOString(),
+  };
+}
+
 export function validateRecord(input: Partial<LifeRecord>, theme: ThemeConfig): string[] {
   const errors: string[] = [];
   if (!input.title?.trim()) errors.push(`${theme.itemLabel} needs a title.`);
