@@ -29,6 +29,8 @@ const WEIGHTS = {
   STALE_DECAY_RATE: 2,   // Penalty per day after STALE_DECAY_START
   POSTPONE_PENALTY: 8,   // Penalty per time the item was pushed forward
   POSTPONE_THRESHOLD: 3,  // When churn penalty starts applying
+  RISK_EFFORT_THRESHOLD: 120, // Effort above which an overdue task is considered 'at risk' of avoidance
+  RISK_BOOST: 20, // Extra boost to surface high-effort overdue tasks
 };
 
 export function localDay(date = new Date()): string {
@@ -102,6 +104,13 @@ export function priorityFor(item: LifeRecord, today = localDay(), focusCategory?
     if (absDays > 14) {
       score += WEIGHTS.OVERDUE_STAGNATION_KICK;
       reasons.push("stagnation boost");
+    }
+
+    // Risk Factor: Large overdue tasks often get pushed because they are intimidating. 
+    // We boost them slightly to ensure they don't just vanish from the top of the list.
+    if (item.effort > WEIGHTS.RISK_EFFORT_THRESHOLD) {
+      score += WEIGHTS.RISK_BOOST;
+      reasons.push("high-effort risk boost");
     }
 
     // Penalty for overdue items that are not actively being worked on
