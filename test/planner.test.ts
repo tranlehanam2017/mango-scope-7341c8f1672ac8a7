@@ -150,6 +150,21 @@ describe("planning engine", () => {
       // to prevent it from forever dominating the list if it's been ignored for months.
       expect(priorityFor(staleOverdue, today).reasons.some(r => r.includes("stale decay"))).toBe(true);
     });
+
+    it("penalizes postponed items linearly", () => {
+      const today = "2026-08-20";
+      const clean = item({ id: "clean", postponedCount: 0 });
+      const pushedOnce = item({ id: "p1", postponedCount: 1 });
+      const pushedMany = item({ id: "p5", postponedCount: 5 });
+
+      const s0 = priorityFor(clean, today).score;
+      const s1 = priorityFor(pushedOnce, today).score;
+      const s5 = priorityFor(pushedMany, today).score;
+
+      expect(s1).toBeLessThan(s0);
+      expect(s5).toBeLessThan(s1);
+      expect(priorityFor(pushedOnce, today).reasons).toContain("postponed 1x");
+    });
   });
 
   describe("workload forecasting", () => {

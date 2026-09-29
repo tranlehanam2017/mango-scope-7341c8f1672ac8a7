@@ -240,10 +240,13 @@ export function priorityFor(item: LifeRecord, today = localDay(), focusCategory?
   }
 
   // Churn Penalty: Penalize items that have been postponed multiple times
-  if (item.postponedCount && item.postponedCount >= WEIGHTS.POSTPONE_THRESHOLD) {
-    const churnPenalty = (item.postponedCount - WEIGHTS.POSTPONE_THRESHOLD + 1) * WEIGHTS.POSTPONE_PENALTY;
+  if (item.postponedCount && item.postponedCount > 0) {
+    const count = item.postponedCount;
+    const churnPenalty = count < WEIGHTS.POSTPONE_THRESHOLD 
+      ? count * (WEIGHTS.POSTPONE_PENALTY / 2) 
+      : (count - WEIGHTS.POSTPONE_THRESHOLD + 1) * WEIGHTS.POSTPONE_PENALTY;
     score -= churnPenalty;
-    reasons.push(`postponed ${item.postponedCount}x`);
+    reasons.push(`postponed ${count}x`);
   }
 
   if (item.status === "done" || item.status === "archived") score = -1;
