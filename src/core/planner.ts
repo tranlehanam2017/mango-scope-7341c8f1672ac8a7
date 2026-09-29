@@ -33,6 +33,7 @@ const WEIGHTS = {
   RISK_EFFORT_THRESHOLD: 120, // Effort above which an overdue task is considered 'at risk' of avoidance
   RISK_BOOST: 20, // Extra boost to surface high-effort overdue tasks
   SUBTASK_BOOST: 15, // Boost for sub-tasks whose parents are critical
+  WSJF_SCALING_FACTOR: 15, // Scaling factor for the value density (Cost of Delay / Duration)
 };
 
 export function localDay(date = new Date()): string {
@@ -156,6 +157,12 @@ export function priorityFor(item: LifeRecord, today = localDay(), focusCategory?
     score += WEIGHTS.CRITICAL_PATH_BOOST;
     reasons.push("critical path item");
   }
+
+  // WSJF-inspired Value Density: (Impact / Effort) * Scale
+  // This ensures that the relative 'cost of delay' for small high-impact tasks is prioritized
+  const valueDensity = (item.impact / item.effort) * WEIGHTS.WSJF_SCALING_FACTOR;
+  score += valueDensity;
+  if (valueDensity > 5) reasons.push("high value density");
 
   // Efficiency Ratio: Scaled bonus for high impact relative to effort (Quick Wins)
   const efficiency = item.impact / item.effort;
