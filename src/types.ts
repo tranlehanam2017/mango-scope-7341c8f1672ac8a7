@@ -14,6 +14,7 @@ export interface LifeRecord {
   createdAt: string;
   updatedAt: string;
   dependsOn?: string; // ID of the record that must be completed first
+  parentId?: string; // ID of the parent task if this is a sub-task
   impactDimensions?: Record<string, number>; // Extra nuanced impact multipliers
   preferredEnergy?: EnergyLevel; // Hint for when to schedule this task
   postponedCount?: number; // Number of times the due date was pushed forward

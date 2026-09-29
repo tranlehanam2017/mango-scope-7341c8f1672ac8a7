@@ -31,6 +31,7 @@ const WEIGHTS = {
   POSTPONE_THRESHOLD: 3,  // When churn penalty starts applying
   RISK_EFFORT_THRESHOLD: 120, // Effort above which an overdue task is considered 'at risk' of avoidance
   RISK_BOOST: 20, // Extra boost to surface high-effort overdue tasks
+  SUBTASK_BOOST: 15, // Boost for sub-tasks whose parents are critical
 };
 
 export function localDay(date = new Date()): string {
@@ -209,6 +210,17 @@ export function priorityFor(item: LifeRecord, today = localDay(), focusCategory?
     if (dependency && dependency.status !== "done" && dependency.status !== "archived") {
       score -= WEIGHTS.DEPENDENCY_PENALTY;
       reasons.push(`blocked by: ${dependency.title}`);
+    }
+  }
+
+  // Sub-task propagation: If this is a sub-task, inherit some value from the parent
+  if (item.parentId && allItems) {
+    const parent = allItems.find(r => r.id === item.parentId);
+    if (parent && parent.status !== "done" && parent.status !== "archived") {
+      if (parent.impact >= 4) {
+        score += WEIGHTS.SUBTASK_BOOST;
+        reasons.push(`sub-task of ${parent.title}`);
+      }
     }
   }
 
