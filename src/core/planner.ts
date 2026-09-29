@@ -18,7 +18,8 @@ const WEIGHTS = {
   MOMENTUM_BOOST_MAX: 10, // Max boost for items updated just now
   CRITICAL_BOOST: 1.5,
   DISTANT_DECAY_MAX: 10, // Max penalty for items due far in the future
-  EFFICIENCY_BOOST: 15, // Bonus for high-impact, low-effort tasks
+  EFFICIENCY_BOOST_MAX: 20, // Max bonus for high-impact, low-effort tasks
+  EFFICIENCY_THRESHOLD: 0.15, // Minimum ratio to start receiving boost
   FOCUS_BOOST: 50, // Bonus for items matching the selected focus category
   DEPENDENCY_PENALTY: 100, // Significant penalty for blocked items
   BATCHING_BONUS: 5, // Bonus per other item of the same category due soon
@@ -156,10 +157,11 @@ export function priorityFor(item: LifeRecord, today = localDay(), focusCategory?
     reasons.push("critical path item");
   }
 
-  // Efficiency Ratio: Bonus for high impact relative to effort (Quick Wins)
+  // Efficiency Ratio: Scaled bonus for high impact relative to effort (Quick Wins)
   const efficiency = item.impact / item.effort;
-  if (efficiency > 0.15) {
-    score += WEIGHTS.EFFICIENCY_BOOST;
+  if (efficiency > WEIGHTS.EFFICIENCY_THRESHOLD) {
+    const efficiencyFactor = Math.min(1, (efficiency - WEIGHTS.EFFICIENCY_THRESHOLD) / 0.35);
+    score += efficiencyFactor * WEIGHTS.EFFICIENCY_BOOST_MAX;
     reasons.push("quick win");
   }
 
@@ -311,19 +313,16 @@ export function suggestDailyLoad(items: readonly LifeRecord[], minutesPerDay: nu
     if (candidates.length === 0) continue;
 
     const target = candidates.sort((a, b) => {
-      // Primary: Energy Alignment
       if (entry.item.preferredEnergy) {
         const aEnergy = a.energyDistribution[entry.item.preferredEnergy];
         const bEnergy = b.energyDistribution[entry.item.preferredEnergy];
         if (aEnergy !== bEnergy) return aEnergy - bEnergy;
       }
 
-      // Secondary: Capacity Balance
       const aUnder = a.used < softCapacity ? 0 : 1;
       const bUnder = b.used < softCapacity ? 0 : 1;
       if (aUnder !== bUnder) return aUnder - bUnder;
       
-      // Tertiary: Least used overall
       return a.used - b.used;
     })[0];
     
