@@ -48,3 +48,12 @@ export interface PlanSummary {
   effort: number;
   byCategory: Record<string, number>;
 }
+
+export interface DailyLoadSuggestion {
+  date: string;
+  used: number;
+  overloaded: boolean;
+  criticalOverload: boolean;
+  energyDistribution: Record<EnergyLevel, number>;
+  entries: PlanEntry[];
+}

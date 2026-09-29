@@ -312,7 +312,6 @@ export function suggestDailyLoad(items: readonly LifeRecord[], minutesPerDay: nu
       if (entry.item.preferredEnergy) {
         const aEnergy = a.energyDistribution[entry.item.preferredEnergy];
         const bEnergy = b.energyDistribution[entry.item.preferredEnergy];
-        // Favor the day with less of this specific energy type currently allocated
         if (aEnergy !== bEnergy) return aEnergy - bEnergy;
       }
 

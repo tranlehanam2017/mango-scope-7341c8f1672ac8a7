@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { importJson } from "../src/core/exchange";
-import { buildPlan, daysBetween, priorityFor, suggestDailyLoad, summarize, forecastBurnDown, analyzeEisenhower } from "../src/core/planner";
+import { buildPlan, daysBetween, priorityFor, suggestDailyLoad, summarize, forecastBurnDown, forecastBurnUp, analyzeEisenhower } from "../src/core/planner";
 import { theme } from "../src/theme";
 import type { LifeRecord } from "../src/types";
 
@@ -176,6 +176,46 @@ describe("planning engine", () => {
       const forecast = forecastBurnDown(items, 100, "2026-08-20");
       expect(forecast.totalEffort).toBe(100);
       expect(forecast.daysToComplete).toBe(1);
+    });
+
+    it("calculates burn-up progress correctly", () => {
+      const items = [
+        item({ id: "1", effort: 100, status: "done" }),
+        item({ id: "2", effort: 100, status: "planned" }),
+        item({ id: "3", effort: 200, status: "planned" }),
+      ];
+      const forecast = forecastBurnUp(items, 100, "2026-08-20");
+      expect(forecast.totalProjectEffort).toBe(400);
+      expect(forecast.completedEffort).toBe(100);
+      expect(forecast.progressPercent).toBe(25);
+      expect(forecast.daysToComplete).toBe(3);
+    });
+  });
+
+  describe("load suggestion logic", () => {
+    it("saturate mode ignores due dates to fill capacity", () => {
+      const today = "2026-08-20";
+      // Item due far in future, but we want to saturate now
+      const futureItem = item({ id: "future", dueDate: "2026-12-20", effort: 60 });
+      
+      const normalWeek = suggestDailyLoad([futureItem], 100, today, false);
+      const saturatedWeek = suggestDailyLoad([futureItem], 100, today, true);
+      
+      expect(normalWeek[0].entries).toHaveLength(0);
+      expect(saturatedWeek[0].entries).toHaveLength(1);
+    });
+
+    it("aligns tasks with preferred energy levels", () => {
+      const today = "2026-08-20";
+      const highEnergyTask = item({ id: "high", preferredEnergy: "high", effort: 30 });
+      const lowEnergyTask = item({ id: "low", preferredEnergy: "low", effort: 30 });
+      
+      const week = suggestDailyLoad([highEnergyTask, lowEnergyTask], 100, today, true);
+      
+      // If both are put on day 0, energy distribution should be recorded
+      const day0 = week[0];
+      expect(day0.energyDistribution.high).toBe(30);
+      expect(day0.energyDistribution.low).toBe(30);
     });
   });
 
