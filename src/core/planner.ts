@@ -34,6 +34,7 @@ const WEIGHTS = {
   RISK_BOOST: 20, // Extra boost to surface high-effort overdue tasks
   SUBTASK_BOOST: 15, // Boost for sub-tasks whose parents are critical
   WSJF_SCALING_FACTOR: 15, // Scaling factor for the value density (Cost of Delay / Duration)
+  COMPLEXITY_MULTIPLIER: 1.1, // Small boost for nuanced/complex tasks to prevent them being buried
 };
 
 export function localDay(date = new Date()): string {
@@ -258,6 +259,13 @@ export function priorityFor(item: LifeRecord, today = localDay(), focusCategory?
     reasons.push(`postponed ${count}x`);
   }
 
+  // Complexity multiplier: Nuanced tasks (those with multiple impact dimensions)
+  // get a slight boost to ensure they don't get buried by simple high-impact tasks.
+  if (item.impactDimensions && Object.keys(item.impactDimensions).length > 1) {
+    score *= WEIGHTS.COMPLEXITY_MULTIPLIER;
+    reasons.push("complexity weight");
+  }
+
   if (item.status === "done" || item.status === "archived") score = -1;
   if (item.status === "stale") {
     score -= 100; // Significant deprioritization for explicitly stale items
@@ -371,6 +379,11 @@ export function forecastBurnDown(items: readonly LifeRecord[], minutesPerDay: nu
   const totalImpact = pending.reduce((sum, i) => sum + i.impact, 0);
   const criticalityScore = pending.length ? Math.round((totalImpact / pending.length) * (stdDev / (meanEffort || 1)) * 10) : 0;
 
+  // Confidence Score: Based on the ratio of standard deviation to mean effort.
+  // Lower volatility (lower stdDev) means higher confidence in the completion date.
+  const volatilityRatio = meanEffort ? stdDev / meanEffort : 0;
+  const confidenceScore = Math.max(0, Math.min(100, Math.round(100 * (1 - volatilityRatio))));
+
   return {
     totalEffort,
     daysToComplete,
@@ -381,7 +394,8 @@ export function forecastBurnDown(items: readonly LifeRecord[], minutesPerDay: nu
     volatileCompletionDate,
     averageEffortPerItem: pending.length ? Math.round(totalEffort / pending.length) : 0,
     volatilityScore: pending.length ? Math.round((stdDev / meanEffort) * 100) : 0,
-    criticalityScore
+    criticalityScore,
+    confidenceScore
   };
 }
 
