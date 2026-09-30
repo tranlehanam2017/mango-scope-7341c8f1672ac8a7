@@ -368,6 +368,9 @@ export function forecastBurnDown(items: readonly LifeRecord[], minutesPerDay: nu
   const volatileDays = Math.ceil(volatileEffort / capacity);
   const volatileCompletionDate = new Date(Date.parse(`${today}T00:00:00Z`) + volatileDays * DAY_MS).toISOString().slice(0, 10);
 
+  const totalImpact = pending.reduce((sum, i) => sum + i.impact, 0);
+  const criticalityScore = pending.length ? Math.round((totalImpact / pending.length) * (stdDev / (meanEffort || 1)) * 10) : 0;
+
   return {
     totalEffort,
     daysToComplete,
@@ -377,7 +380,8 @@ export function forecastBurnDown(items: readonly LifeRecord[], minutesPerDay: nu
     volatileDays,
     volatileCompletionDate,
     averageEffortPerItem: pending.length ? Math.round(totalEffort / pending.length) : 0,
-    volatilityScore: pending.length ? Math.round((stdDev / meanEffort) * 100) : 0
+    volatilityScore: pending.length ? Math.round((stdDev / meanEffort) * 100) : 0,
+    criticalityScore
   };
 }
 
