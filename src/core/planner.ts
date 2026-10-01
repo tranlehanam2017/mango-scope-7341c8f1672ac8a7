@@ -27,6 +27,7 @@ const WEIGHTS = {
   DEPENDENCY_PENALTY: 100, // Significant penalty for blocked items
   BATCHING_BONUS: 5, // Bonus per other item of the same category due soon
   QUICK_WIN_BATCH_BONUS: 12, // Higher bonus when batching multiple quick-wins
+  BATCH_MOMENTUM_MULTIPLIER: 1.05, // Multiplier per additional item in a category batch
   CAPACITY_FIT_BONUS: 12, // Bonus for tasks that fit well in standard blocks
   DIMENSION_WEIGHT: 12, // Base weight for each additional impact dimension
   STABILITY_THRESHOLD: 0.5, // Minimum score diff to trigger a rank change
@@ -262,7 +263,7 @@ export function priorityFor(item: LifeRecord, today = localDay(), focusCategory?
     }
   }
 
-  // Batching Bonus
+  // Batching Bonus & Sequential Momentum
   if (allItems) {
     const siblings = allItems.filter(r => 
       r.id !== item.id && 
@@ -276,7 +277,14 @@ export function priorityFor(item: LifeRecord, today = localDay(), focusCategory?
       const bonusPerItem = isBatchingQuickWins ? WEIGHTS.QUICK_WIN_BATCH_BONUS : WEIGHTS.BATCHING_BONUS;
       
       score += siblings.length * bonusPerItem;
+      
+      // Batch Momentum: amplify score slightly for each additional task in the batch
+      // to favor grouping tasks of the same category together in the final plan.
+      const momentumMult = Math.pow(WEIGHTS.BATCH_MOMENTUM_MULTIPLIER, siblings.length);
+      score *= momentumMult;
+
       reasons.push(`batching: ${siblings.length} similar tasks${isBatchingQuickWins ? ' (quick-win loop)' : ''}`);
+      if (siblings.length >= 3) reasons.push("batch momentum");
     }
   }
 
