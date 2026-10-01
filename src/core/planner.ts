@@ -20,6 +20,8 @@ const WEIGHTS = {
   DISTANT_DECAY_MAX: 10, // Max penalty for items due far in the future
   EFFICIENCY_BOOST_MAX: 20, // Max bonus for high-impact, low-effort tasks
   EFFICIENCY_THRESHOLD: 0.15, // Minimum ratio to start receiving boost
+  HYPER_EFFICIENCY_THRESHOLD: 0.4, // Ratio for 'Hyper-Quick Win' boost
+  HYPER_EFFICIENCY_BOOST: 10, // Additional boost for hyper-efficient tasks
   FOCUS_BOOST: 50, // Bonus for items matching the selected focus category
   DEPENDENCY_PENALTY: 100, // Significant penalty for blocked items
   BATCHING_BONUS: 5, // Bonus per other item of the same category due soon
@@ -172,6 +174,11 @@ export function priorityFor(item: LifeRecord, today = localDay(), focusCategory?
     const efficiencyFactor = Math.min(1, (efficiency - WEIGHTS.EFFICIENCY_THRESHOLD) / 0.35);
     score += efficiencyFactor * WEIGHTS.EFFICIENCY_BOOST_MAX;
     reasons.push("quick win");
+    
+    if (efficiency > WEIGHTS.HYPER_EFFICIENCY_THRESHOLD) {
+      score += WEIGHTS.HYPER_EFFICIENCY_BOOST;
+      reasons.push("hyper-efficient");
+    }
   }
 
   // Capacity Fit: Small bonus for items that align with common work blocks
@@ -207,8 +214,9 @@ export function priorityFor(item: LifeRecord, today = localDay(), focusCategory?
     const diffHours = diffMs / (1000 * 60 * 60);
     
     if (diffHours < 72) {
-      // Use an exponential decay for momentum so the boost fades naturally over 3 days
-      const momentum = WEIGHTS.MOMENTUM_BOOST_MAX * Math.exp(-diffHours / 24);
+      // Linear decay for momentum: it's more predictable than exponential
+      const decayFactor = 1 - (diffHours / 72);
+      const momentum = WEIGHTS.MOMENTUM_BOOST_MAX * decayFactor;
       score += momentum;
       reasons.push("recent momentum");
     }
@@ -398,7 +406,7 @@ export function forecastBurnDown(items: readonly LifeRecord[], minutesPerDay: nu
   const criticalityScore = pending.length ? Math.round((totalImpact / pending.length) * (stdDev / (meanEffort || 1)) * 10) : 0;
 
   // Confidence Score: Based on the ratio of standard deviation to mean effort.
-  // Lower volatility (lower stdDev) means higher confidence in the completion date.
+  // Lower volatility (stdDev) means higher confidence in the completion date.
   const volatilityRatio = meanEffort ? stdDev / meanEffort : 0;
   const confidenceScore = Math.max(0, Math.min(100, Math.round(100 * (1 - volatilityRatio))));
 
