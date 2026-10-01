@@ -323,15 +323,23 @@ export function buildPlan(items: readonly LifeRecord[], today = localDay(), focu
   return entries.sort((a, b) => {
     const diff = b.score - a.score;
     
-    // Refined stability: Quick wins (high efficiency) can break ties more easily
+    // Refined stability: Use a threshold to prevent rank-swapping for very similar tasks.
+    // High efficiency tasks (quick wins) have a tighter stability window to allow them to move up easier.
     const aEff = a.item.impact / a.item.effort;
     const bEff = b.item.impact / b.item.effort;
-    const stability = (aEff > WEIGHTS.EFFICIENCY_THRESHOLD || bEff > WEIGHTS.EFFICIENCY_THRESHOLD) 
-      ? WEIGHTS.STABILITY_THRESHOLD * 0.5 
-      : WEIGHTS.STABILITY_THRESHOLD;
+    const isQuickWin = aEff > WEIGHTS.EFFICIENCY_THRESHOLD || bEff > WEIGHTS.EFFICIENCY_THRESHOLD;
+    const stability = isQuickWin ? WEIGHTS.STABILITY_THRESHOLD * 0.5 : WEIGHTS.STABILITY_THRESHOLD;
 
     if (Math.abs(diff) < stability) {
-      return a.item.dueDate.localeCompare(b.item.dueDate);
+      // Tie-break 1: Prefer items due sooner
+      const dateDiff = a.item.dueDate.localeCompare(b.item.dueDate);
+      if (dateDiff !== 0) return dateDiff;
+      
+      // Tie-break 2: Prefer items with higher impact
+      if (a.item.impact !== b.item.impact) return b.item.impact - a.item.impact;
+      
+      // Tie-break 3: Deterministic ID sort to prevent unstable lists
+      return a.item.id.localeCompare(b.item.id);
     }
     return diff || a.item.dueDate.localeCompare(b.item.dueDate);
   });
