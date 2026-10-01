@@ -15,7 +15,7 @@ const WEIGHTS = {
   AT_RISK_MULTIPLIER: 1.3, // Multiplier for high-impact overdue tasks
   CRITICAL_PATH_BOOST: 40, // Boost for high-impact items due today or tomorrow
   ACTIVE_BOOST: 1.25,
-  MOMENTUM_BOOST_MAX: 10, // Max boost for items updated just now
+  MOMENTUM_BOOST_MAX: 15, // Max boost for items updated just now
   CRITICAL_BOOST: 1.5,
   DISTANT_DECAY_MAX: 10, // Max penalty for items due far in the future
   EFFICIENCY_BOOST_MAX: 20, // Max bonus for high-impact, low-effort tasks
@@ -31,7 +31,7 @@ const WEIGHTS = {
   POSTPONE_PENALTY: 8,   // Penalty per time the item was pushed forward
   POSTPONE_THRESHOLD: 3,  // When churn penalty starts applying
   RISK_EFFORT_THRESHOLD: 120, // Effort above which an overdue task is considered 'at risk' of avoidance
-  RISK_BOOST: 20, // Extra boost to surface high-effort overdue tasks
+  RISK_BOOST: 25, // Extra boost to surface high-effort overdue tasks
   SUBTASK_BOOST: 15, // Boost for sub-tasks whose parents are critical
   WSJF_SCALING_FACTOR: 15, // Scaling factor for the value density (Cost of Delay / Duration)
   COMPLEXITY_MULTIPLIER: 1.1, // Small boost for nuanced/complex tasks to prevent them being buried
@@ -206,8 +206,9 @@ export function priorityFor(item: LifeRecord, today = localDay(), focusCategory?
     const diffMs = now.getTime() - lastUpdated.getTime();
     const diffHours = diffMs / (1000 * 60 * 60);
     
-    if (diffHours < 48) {
-      const momentum = WEIGHTS.MOMENTUM_BOOST_MAX * (1 - diffHours / 48);
+    if (diffHours < 72) {
+      // Use an exponential decay for momentum so the boost fades naturally over 3 days
+      const momentum = WEIGHTS.MOMENTUM_BOOST_MAX * Math.exp(-diffHours / 24);
       score += momentum;
       reasons.push("recent momentum");
     }
