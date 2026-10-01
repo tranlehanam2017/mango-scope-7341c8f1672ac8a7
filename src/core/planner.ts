@@ -26,6 +26,7 @@ const WEIGHTS = {
   FOCUS_INTENSITY_MULTIPLIER: 1.15, // Multiplier for focus category items to amplify other boosts
   DEPENDENCY_PENALTY: 100, // Significant penalty for blocked items
   BATCHING_BONUS: 5, // Bonus per other item of the same category due soon
+  QUICK_WIN_BATCH_BONUS: 12, // Higher bonus when batching multiple quick-wins
   CAPACITY_FIT_BONUS: 12, // Bonus for tasks that fit well in standard blocks
   DIMENSION_WEIGHT: 12, // Base weight for each additional impact dimension
   STABILITY_THRESHOLD: 0.5, // Minimum score diff to trigger a rank change
@@ -175,7 +176,8 @@ export function priorityFor(item: LifeRecord, today = localDay(), focusCategory?
 
   // Efficiency Ratio: Scaled bonus for high impact relative to effort (Quick Wins)
   const efficiency = item.impact / item.effort;
-  if (efficiency > WEIGHTS.EFFICIENCY_THRESHOLD) {
+  const isQuickWin = efficiency > WEIGHTS.EFFICIENCY_THRESHOLD;
+  if (isQuickWin) {
     const efficiencyFactor = Math.min(1, (efficiency - WEIGHTS.EFFICIENCY_THRESHOLD) / 0.35);
     score += efficiencyFactor * WEIGHTS.EFFICIENCY_BOOST_MAX;
     reasons.push("quick win");
@@ -270,8 +272,11 @@ export function priorityFor(item: LifeRecord, today = localDay(), focusCategory?
       Math.abs(daysBetween(today, r.dueDate)) <= 3
     );
     if (siblings.length > 0) {
-      score += siblings.length * WEIGHTS.BATCHING_BONUS;
-      reasons.push(`batching: ${siblings.length} similar tasks`);
+      const isBatchingQuickWins = isQuickWin && siblings.some(s => (s.impact / s.effort) > WEIGHTS.EFFICIENCY_THRESHOLD);
+      const bonusPerItem = isBatchingQuickWins ? WEIGHTS.QUICK_WIN_BATCH_BONUS : WEIGHTS.BATCHING_BONUS;
+      
+      score += siblings.length * bonusPerItem;
+      reasons.push(`batching: ${siblings.length} similar tasks${isBatchingQuickWins ? ' (quick-win loop)' : ''}`);
     }
   }
 
