@@ -23,6 +23,7 @@ const WEIGHTS = {
   HYPER_EFFICIENCY_THRESHOLD: 0.4, // Ratio for 'Hyper-Quick Win' boost
   HYPER_EFFICIENCY_BOOST: 10, // Additional boost for hyper-efficient tasks
   FOCUS_BOOST: 50, // Bonus for items matching the selected focus category
+  FOCUS_INTENSITY_MULTIPLIER: 1.15, // Multiplier for focus category items to amplify other boosts
   DEPENDENCY_PENALTY: 100, // Significant penalty for blocked items
   BATCHING_BONUS: 5, // Bonus per other item of the same category due soon
   CAPACITY_FIT_BONUS: 12, // Bonus for tasks that fit well in standard blocks
@@ -116,8 +117,12 @@ export function priorityFor(item: LifeRecord, today = localDay(), focusCategory?
     // Risk Factor: Large overdue tasks often get pushed because they are intimidating. 
     // We boost them slightly to ensure they don't just vanish from the top of the list.
     if (item.effort > WEIGHTS.RISK_EFFORT_THRESHOLD) {
-      score += WEIGHTS.RISK_BOOST;
-      reasons.push("high-effort risk boost");
+      // Refined: Only boost high-effort tasks if they also have significant impact, 
+      // otherwise we risk surfacing 'bloat' tasks over quick wins.
+      if (item.impact >= 3) {
+        score += WEIGHTS.RISK_BOOST;
+        reasons.push("high-effort risk boost");
+      }
     }
 
     // Penalty for overdue items that are not actively being worked on
@@ -230,6 +235,9 @@ export function priorityFor(item: LifeRecord, today = localDay(), focusCategory?
   if (focusCategory && item.category === focusCategory) {
     score += WEIGHTS.FOCUS_BOOST;
     reasons.push(`focus: ${focusCategory}`);
+    // Focus Intensity: amplify the total score to make focus items dominate other logic
+    score *= WEIGHTS.FOCUS_INTENSITY_MULTIPLIER;
+    reasons.push("focus intensity");
   }
 
   // Dependency Penalty
