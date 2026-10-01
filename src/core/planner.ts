@@ -383,6 +383,14 @@ export function suggestDailyLoad(items: readonly LifeRecord[], minutesPerDay: nu
     if (candidates.length === 0) continue;
 
     const target = candidates.sort((a, b) => {
+      // Deep Work Preference: For high-effort tasks (>= 90m), favor days that already have high-effort work
+      // to consolidate intensive blocks rather than scattering them across the week.
+      if (entry.item.effort >= 90) {
+        const aDeep = a.entries.some(e => e.item.effort >= 90) ? 0 : 1;
+        const bDeep = b.entries.some(e => e.item.effort >= 90) ? 0 : 1;
+        if (aDeep !== bDeep) return aDeep - bDeep;
+      }
+
       if (entry.item.preferredEnergy) {
         const aEnergy = a.energyDistribution[entry.item.preferredEnergy];
         const bEnergy = b.energyDistribution[entry.item.preferredEnergy];
