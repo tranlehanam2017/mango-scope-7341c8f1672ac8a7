@@ -35,6 +35,7 @@ const WEIGHTS = {
   SUBTASK_BOOST: 15, // Boost for sub-tasks whose parents are critical
   WSJF_SCALING_FACTOR: 15, // Scaling factor for the value density (Cost of Delay / Duration)
   COMPLEXITY_MULTIPLIER: 1.1, // Small boost for nuanced/complex tasks to prevent them being buried
+  OVERSIZE_PENALTY_BASE: 15, // Base penalty for tasks exceeding half a standard workday (240m)
 };
 
 export function localDay(date = new Date()): string {
@@ -186,6 +187,14 @@ export function priorityFor(item: LifeRecord, today = localDay(), focusCategory?
     const excess = item.effort - 60;
     effortPenalty = Math.min(30, Math.log2(excess + 1) * 4);
   }
+  
+  // Workload-aware penalty for oversized tasks
+  if (item.effort > 240) {
+    const oversized = item.effort - 240;
+    effortPenalty += WEIGHTS.OVERSIZE_PENALTY_BASE + Math.floor(oversized / 60) * 5;
+    reasons.push("oversized effort penalty");
+  }
+  
   score -= effortPenalty;
 
   if (item.status === "active") {
@@ -283,7 +292,15 @@ export function buildPlan(items: readonly LifeRecord[], today = localDay(), focu
 
   return entries.sort((a, b) => {
     const diff = b.score - a.score;
-    if (Math.abs(diff) < WEIGHTS.STABILITY_THRESHOLD) {
+    
+    // Refined stability: Quick wins (high efficiency) can break ties more easily
+    const aEff = a.item.impact / a.item.effort;
+    const bEff = b.item.impact / b.item.effort;
+    const stability = (aEff > WEIGHTS.EFFICIENCY_THRESHOLD || bEff > WEIGHTS.EFFICIENCY_THRESHOLD) 
+      ? WEIGHTS.STABILITY_THRESHOLD * 0.5 
+      : WEIGHTS.STABILITY_THRESHOLD;
+
+    if (Math.abs(diff) < stability) {
       return a.item.dueDate.localeCompare(b.item.dueDate);
     }
     return diff || a.item.dueDate.localeCompare(b.item.dueDate);
