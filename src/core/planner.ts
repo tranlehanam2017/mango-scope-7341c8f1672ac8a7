@@ -462,6 +462,13 @@ export function forecastBurnDown(items: readonly LifeRecord[], minutesPerDay: nu
   const volatilityRatio = meanEffort ? stdDev / meanEffort : 0;
   const confidenceScore = Math.max(0, Math.min(100, Math.round(100 * (1 - volatilityRatio))));
 
+  // Multi-day trend forecast
+  const trend = Array.from({ length: 30 }, (_, i) => {
+    const date = new Date(Date.parse(`${today}T00:00:00Z`) + i * DAY_MS).toISOString().slice(0, 10);
+    const remaining = Math.max(0, totalEffort - (i + 1) * capacity);
+    return { date, remaining };
+  });
+
   return {
     totalEffort,
     daysToComplete,
@@ -473,7 +480,8 @@ export function forecastBurnDown(items: readonly LifeRecord[], minutesPerDay: nu
     averageEffortPerItem: pending.length ? Math.round(totalEffort / pending.length) : 0,
     volatilityScore: pending.length ? Math.round((stdDev / meanEffort) * 100) : 0,
     criticalityScore,
-    confidenceScore
+    confidenceScore,
+    trend
   };
 }
 
@@ -486,13 +494,21 @@ export function forecastBurnUp(items: readonly LifeRecord[], minutesPerDay: numb
   const daysToComplete = Math.ceil(pendingEffort / capacity);
   const completionDate = new Date(Date.parse(`${today}T00:00:00Z`) + daysToComplete * DAY_MS).toISOString().slice(0, 10);
 
+  // Multi-day trend forecast
+  const trend = Array.from({ length: 30 }, (_, i) => {
+    const date = new Date(Date.parse(`${today}T00:00:00Z`) + i * DAY_MS).toISOString().slice(0, 10);
+    const completed = Math.min(totalProjectEffort, completedEffort + (i + 1) * capacity);
+    return { date, completed };
+  });
+
   return {
     totalProjectEffort,
     completedEffort,
     pendingEffort,
     daysToComplete,
     completionDate,
-    progressPercent: totalProjectEffort ? Math.round((completedEffort / totalProjectEffort) * 100) : 0
+    progressPercent: totalProjectEffort ? Math.round((completedEffort / totalProjectEffort) * 100) : 0,
+    trend
   };
 }
 
