@@ -41,6 +41,7 @@ const WEIGHTS = {
   WSJF_SCALING_FACTOR: 15, // Scaling factor for the value density (Cost of Delay / Duration)
   COMPLEXITY_MULTIPLIER: 1.1, // Small boost for nuanced/complex tasks to prevent them being buried
   OVERSIZE_PENALTY_BASE: 15, // Base penalty for tasks exceeding half a standard workday (240m)
+  COMPLEXITY_EFFORT_PENALTY: 4, // Penalty per dimension when effort is high
 };
 
 export function localDay(date = new Date()): string {
@@ -303,6 +304,16 @@ export function priorityFor(item: LifeRecord, today = localDay(), focusCategory?
   if (item.impactDimensions && Object.keys(item.impactDimensions).length > 1) {
     score *= WEIGHTS.COMPLEXITY_MULTIPLIER;
     reasons.push("complexity weight");
+
+    // Complexity-to-Effort Penalty: If a task is both complex (many dimensions) 
+    // and high-effort, it's a candidate for breaking down. We penalize it slightly 
+    // to encourage splitting it into smaller, more manageable sub-tasks.
+    if (item.effort > 120) {
+      const dimCount = Object.keys(item.impactDimensions).length;
+      const complexityPenalty = dimCount * WEIGHTS.COMPLEXITY_EFFORT_PENALTY;
+      score -= complexityPenalty;
+      reasons.push(`complexity/effort penalty (-${complexityPenalty})`);
+    }
   }
 
   if (item.status === "done" || item.status === "archived") score = -1;
