@@ -525,10 +525,15 @@ export function analyzeEisenhower(item: LifeRecord, today = localDay()): Eisenho
   const daysUntilDue = daysBetween(today, item.dueDate);
   const isUrgent = daysUntilDue <= 2;
   const isImportant = item.impact >= 4;
+  const isHighEffort = item.effort > 180;
 
   if (isUrgent && isImportant) return "DO_FIRST";
   if (!isUrgent && isImportant) return "SCHEDULE";
   if (isUrgent && !isImportant) return "DELEGATE";
+  
+  // Refinement: High-effort, low-impact tasks are prime candidates for elimination
+  if (!isImportant && isHighEffort) return "ELIMINATE";
+  
   return "ELIMINATE";
 }
 
@@ -539,6 +544,7 @@ export interface RecordFilter {
   minImpact?: number;
   maxEffort?: number;
   overdueOnly?: boolean;
+  urgentOnly?: boolean;
 }
 
 export function filterRecords(items: readonly LifeRecord[], filter: RecordFilter, today = localDay()): LifeRecord[] {
@@ -555,6 +561,7 @@ export function filterRecords(items: readonly LifeRecord[], filter: RecordFilter
     if (filter.minImpact !== undefined && item.impact < filter.minImpact) return false;
     if (filter.maxEffort !== undefined && item.effort > filter.maxEffort) return false;
     if (filter.overdueOnly && daysBetween(today, item.dueDate) >= 0) return false;
+    if (filter.urgentOnly && daysBetween(today, item.dueDate) > 2) return false;
     
     return true;
   });
