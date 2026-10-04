@@ -154,6 +154,13 @@ export function priorityFor(item: LifeRecord, today = localDay(), focusCategory?
   } else if (daysUntilDue <= 3) {
     score += WEIGHTS.URGENCY_NEAR;
     reasons.push(`due in ${daysUntilDue} day(s)`);
+    
+    // Stability Boost: High-impact tasks nearing their deadline should not be easily
+    // bumped by new small tasks. We add a small stability weight based on impact.
+    if (item.impact >= 4) {
+      score += item.impact * 2;
+      reasons.push("critical stability boost");
+    }
   } else if (daysUntilDue <= 7) {
     score += WEIGHTS.URGENCY_WEEK;
     reasons.push(`due in ${daysUntilDue} day(s)`);
