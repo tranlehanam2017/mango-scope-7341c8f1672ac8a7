@@ -1,6 +1,7 @@
 export type ItemStatus = "planned" | "active" | "stale" | "done" | "archived";
 
 export type EnergyLevel = "high" | "medium" | "low";
+export type TimeOfDay = "morning" | "afternoon" | "evening";
 
 export interface LifeRecord {
   id: string;
@@ -17,6 +18,7 @@ export interface LifeRecord {
   parentId?: string; // ID of the parent task if this is a sub-task
   impactDimensions?: Record<string, number>; // Extra nuanced impact multipliers
   preferredEnergy?: EnergyLevel; // Hint for when to schedule this task
+  preferredTime?: TimeOfDay; // Hint for time of day
   postponedCount?: number; // Number of times the due date was pushed forward
 }
 
@@ -55,5 +57,6 @@ export interface DailyLoadSuggestion {
   overloaded: boolean;
   criticalOverload: boolean;
   energyDistribution: Record<EnergyLevel, number>;
+  timeDistribution: Record<TimeOfDay, number>;
   entries: PlanEntry[];
 }

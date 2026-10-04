@@ -1,4 +1,4 @@
-import type { LifeRecord, PlanEntry, PlanSummary, ThemeConfig, EnergyLevel } from "../types";
+import type { LifeRecord, PlanEntry, PlanSummary, ThemeConfig, EnergyLevel, TimeOfDay } from "../types";
 
 const DAY_MS = 86_400_000;
 
@@ -367,6 +367,7 @@ export function suggestDailyLoad(items: readonly LifeRecord[], minutesPerDay: nu
     date: new Date(Date.parse(`${today}T00:00:00Z`) + offset * DAY_MS).toISOString().slice(0, 10),
     used: 0,
     energyDistribution: { high: 0, medium: 0, low: 0 },
+    timeDistribution: { morning: 0, afternoon: 0, evening: 0 },
     entries: [] as PlanEntry[],
   }));
 
@@ -408,6 +409,9 @@ export function suggestDailyLoad(items: readonly LifeRecord[], minutesPerDay: nu
     target.used += entry.item.effort;
     if (entry.item.preferredEnergy) {
       target.energyDistribution[entry.item.preferredEnergy] += entry.item.effort;
+    }
+    if (entry.item.preferredTime) {
+      target.timeDistribution[entry.item.preferredTime] += entry.item.effort;
     }
   }
   return days.map((day) => ({
