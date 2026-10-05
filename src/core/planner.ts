@@ -42,6 +42,7 @@ const WEIGHTS = {
   COMPLEXITY_MULTIPLIER: 1.1, // Small boost for nuanced/complex tasks to prevent them being buried
   OVERSIZE_PENALTY_BASE: 15, // Base penalty for tasks exceeding half a standard workday (240m)
   COMPLEXITY_EFFORT_PENALTY: 4, // Penalty per dimension when effort is high
+  PREFERENCE_BOOST: 10, // Bonus for alignment with current time/energy context
 };
 
 export function localDay(date = new Date()): string {
