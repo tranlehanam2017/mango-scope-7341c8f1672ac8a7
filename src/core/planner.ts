@@ -38,7 +38,7 @@ const WEIGHTS = {
   RISK_EFFORT_THRESHOLD: 120, // Effort above which an overdue task is considered 'at risk' of avoidance
   RISK_BOOST: 25, // Extra boost to surface high-effort overdue tasks
   SUBTASK_BOOST: 15, // Boost for sub-tasks whose parents are critical
-  WSJF_SCALING_FACTOR: 15, // Scaling factor for the value density (Cost of Delay / Duration)
+  WSJF_SCALING_FACTOR: 25, // Scaling factor for the value density (Cost of Delay / Duration)
   COMPLEXITY_MULTIPLIER: 1.1, // Small boost for nuanced/complex tasks to prevent them being buried
   OVERSIZE_PENALTY_BASE: 15, // Base penalty for tasks exceeding half a standard workday (240m)
   COMPLEXITY_EFFORT_PENALTY: 4, // Penalty per dimension when effort is high
@@ -182,7 +182,7 @@ export function priorityFor(item: LifeRecord, today = localDay(), focusCategory?
   // This ensures that the relative 'cost of delay' for small high-impact tasks is prioritized
   const valueDensity = (item.impact / item.effort) * WEIGHTS.WSJF_SCALING_FACTOR;
   score += valueDensity;
-  if (valueDensity > 5) reasons.push("high value density");
+  if (valueDensity > 8) reasons.push("high value density");
 
   // Efficiency Ratio: Scaled bonus for high impact relative to effort (Quick Wins)
   const efficiency = item.impact / item.effort;

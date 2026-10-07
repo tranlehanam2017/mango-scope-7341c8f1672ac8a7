@@ -165,6 +165,18 @@ describe("planning engine", () => {
       expect(s5).toBeLessThan(s1);
       expect(priorityFor(pushedOnce, today).reasons).toContain("postponed 1x");
     });
+
+    it("prioritizes high-value low-effort tasks via WSJF density", () => {
+      const today = "2026-08-20";
+      const highValueLowEffort = item({ id: "quick", impact: 5, effort: 15 }); // ratio 0.33
+      const highValueHighEffort = item({ id: "marathon", impact: 5, effort: 200 }); // ratio 0.025
+      
+      const scoreQuick = priorityFor(highValueLowEffort, today).score;
+      const scoreMarathon = priorityFor(highValueHighEffort, today).score;
+      
+      expect(scoreQuick).toBeGreaterThan(scoreMarathon);
+      expect(priorityFor(highValueLowEffort, today).reasons).toContain("high value density");
+    });
   });
 
   describe("workload forecasting", () => {
