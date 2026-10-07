@@ -438,6 +438,9 @@ export function suggestDailyLoad(items: readonly LifeRecord[], minutesPerDay: nu
     const target = candidates.sort((a, b) => {
       // Focus-Aware Allocation: Prioritize placing focus-category tasks in the earliest slots
       if (focusCategory && entry.item.category === focusCategory) {
+        const aIdx = days.indexOf(a);
+        const bIdx = days.indexOf(b);
+        return aIdx - bIdx;
       }
 
       // Deep Work Preference: For high-effort tasks (>= 90m), favor days that already have high-effort work
