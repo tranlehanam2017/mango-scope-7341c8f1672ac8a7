@@ -428,6 +428,14 @@ export function suggestDailyLoad(items: readonly LifeRecord[], minutesPerDay: nu
         if (aDeep !== bDeep) return aDeep - bDeep;
       }
 
+      // Balanced Effort: If the task is medium-to-large, avoid placing it on a day
+      // that is already significantly occupied by a single massive task (concentration risk).
+      if (entry.item.effort >= 60) {
+        const aMax = a.entries.length ? Math.max(...a.entries.map(e => e.item.effort)) : 0;
+        const bMax = b.entries.length ? Math.max(...b.entries.map(e => e.item.effort)) : 0;
+        if (aMax !== bMax) return aMax - bMax; // Prefer the day with the smaller 'largest' task
+      }
+
       if (entry.item.preferredEnergy) {
         const aEnergy = a.energyDistribution[entry.item.preferredEnergy];
         const bEnergy = b.energyDistribution[entry.item.preferredEnergy];
