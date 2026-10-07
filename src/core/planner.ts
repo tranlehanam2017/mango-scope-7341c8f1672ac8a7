@@ -469,13 +469,16 @@ export function suggestDailyLoad(items: readonly LifeRecord[], minutesPerDay: nu
 export function forecastBurnDown(items: readonly LifeRecord[], minutesPerDay: number, today = localDay()) {
   const capacity = Math.max(1, minutesPerDay);
   const pending = items.filter(i => i.status !== "done" && i.status !== "archived");
-  const totalEffort = pending.reduce((sum, i) => sum + i.effort, 0);
+  
+  // Risk-Aware Effort Scaling: Items over 120m are penalized by 20% in forecast to 
+  // account for the likely avoidance/decomposition overhead of large tasks.
+  const totalEffort = pending.reduce((sum, i) => sum + (i.effort > 120 ? i.effort * 1.2 : i.effort), 0);
   
   const daysToComplete = Math.ceil(totalEffort / capacity);
   const completionDate = new Date(Date.parse(`${today}T00:00:00Z`) + daysToComplete * DAY_MS).toISOString().slice(0, 10);
 
   const riskEffort = pending.reduce((sum, i) => {
-    return sum + (i.effort > 120 ? i.effort * 1.2 : i.effort);
+    return sum + (i.effort > 120 ? i.effort * 1.4 : i.effort);
   }, 0);
   const riskDays = Math.ceil(riskEffort / capacity);
   const riskCompletionDate = new Date(Date.parse(`${today}T00:00:00Z`) + riskDays * DAY_MS).toISOString().slice(0, 10);
