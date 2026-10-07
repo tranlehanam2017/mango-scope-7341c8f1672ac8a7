@@ -8,6 +8,7 @@ const WEIGHTS = {
   URGENCY_NEAR: 30, // 1-3 days away
   URGENCY_WEEK: 15,  // 4-7 days away
   OVERDUE_BASE: 70,
+  OVERDUE_RECENT_BOOST: 25, // Extra boost for items 1-3 days overdue
   OVERDUE_DAILY: 5,
   OVERDUE_STAGNATION_KICK: 15, // Boost for items overdue by more than 14 days
   OVERDUE_INACTIVE_PENALTY: 10, // Penalty for overdue items not marked as active
@@ -111,6 +112,12 @@ export function priorityFor(item: LifeRecord, today = localDay(), focusCategory?
     
     reasons.push(`${absDays} day(s) overdue`);
     if (item.impact >= 4) reasons.push("high-value overdue");
+
+    // Boost for items only slightly overdue to prioritize rapid recovery
+    if (absDays <= 3) {
+      score += WEIGHTS.OVERDUE_RECENT_BOOST;
+      reasons.push("recent overdue recovery");
+    }
 
     // Prevent stagnation: items overdue by more than 2 weeks get a secondary kick
     if (absDays > 14) {
