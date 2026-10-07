@@ -17,6 +17,7 @@ const WEIGHTS = {
   CRITICAL_PATH_BOOST: 40, // Boost for high-impact items due today or tomorrow
   ACTIVE_BOOST: 1.25,
   MOMENTUM_BOOST_MAX: 15, // Max boost for items updated just now
+  MOMENTUM_DECAY_HOURS: 48, // Window for momentum boost
   CRITICAL_BOOST: 1.5,
   DISTANT_DECAY_MAX: 10, // Max penalty for items due far in the future
   EFFICIENCY_BOOST_MAX: 20, // Max bonus for high-impact, low-effort tasks
@@ -239,9 +240,9 @@ export function priorityFor(item: LifeRecord, today = localDay(), focusCategory?
     const diffMs = now.getTime() - lastUpdated.getTime();
     const diffHours = diffMs / (1000 * 60 * 60);
     
-    if (diffHours < 72) {
-      // Linear decay for momentum: it's more predictable than exponential
-      const decayFactor = 1 - (diffHours / 72);
+    if (diffHours < WEIGHTS.MOMENTUM_DECAY_HOURS) {
+      // Linear decay for momentum: reward recent activity to maintain focus
+      const decayFactor = 1 - (diffHours / WEIGHTS.MOMENTUM_DECAY_HOURS);
       const momentum = WEIGHTS.MOMENTUM_BOOST_MAX * decayFactor;
       score += momentum;
       reasons.push("recent momentum");
