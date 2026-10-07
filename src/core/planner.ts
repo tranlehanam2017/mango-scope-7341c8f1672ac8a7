@@ -185,9 +185,11 @@ export function priorityFor(item: LifeRecord, today = localDay(), focusCategory?
     reasons.push("critical path item");
   }
 
-  // WSJF-inspired Value Density: (Impact / Effort) * Scale
-  // This ensures that the relative 'cost of delay' for small high-impact tasks is prioritized
-  const valueDensity = (item.impact / item.effort) * WEIGHTS.WSJF_SCALING_FACTOR;
+  // Refined WSJF-inspired Value Density: (Impact / Effort) * Scale
+  // Adjusted: We use a logarithmic dampener for effort to ensure that
+  // very high-effort tasks still get some priority if impact is massive.
+  const scaledEffort = item.effort > 60 ? 60 + Math.log2(item.effort - 59) * 10 : item.effort;
+  const valueDensity = (item.impact / scaledEffort) * WEIGHTS.WSJF_SCALING_FACTOR;
   score += valueDensity;
   if (valueDensity > 8) reasons.push("high value density");
 
