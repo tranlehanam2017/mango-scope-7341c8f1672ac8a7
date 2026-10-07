@@ -402,11 +402,19 @@ export function suggestDailyLoad(items: readonly LifeRecord[], minutesPerDay: nu
   const plan = buildPlan(items, today);
 
   for (const entry of plan) {
+    // Strategic Buffering: If the previous day was critically overloaded, 
+    // we reduce the capacity for the current day to allow for recovery.
+    const getEffectiveCapacity = (dayIndex: number) => {
+      if (dayIndex === 0) return hardCapacity;
+      const prevDay = days[dayIndex - 1];
+      return prevDay.used > hardCapacity ? softCapacity * 0.8 : hardCapacity;
+    };
+
     const candidates = saturate 
-      ? days.filter(d => d.used + entry.item.effort <= hardCapacity)
+      ? days.filter((d, idx) => d.used + entry.item.effort <= getEffectiveCapacity(idx))
       : days.filter((day, index) => 
           index <= Math.max(0, Math.min(6, entry.daysUntilDue)) && 
-          day.used + entry.item.effort <= hardCapacity
+          day.used + entry.item.effort <= getEffectiveCapacity(index)
         );
 
     if (candidates.length === 0) continue;
