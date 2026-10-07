@@ -2,6 +2,12 @@ import type { LifeRecord, PlanEntry, PlanSummary, ThemeConfig, EnergyLevel, Time
 
 const DAY_MS = 86_400_000;
 
+const ENERGY_COSTS: Record<EnergyLevel, number> = {
+  high: 3,
+  medium: 2,
+  low: 1,
+};
+
 const WEIGHTS = {
   IMPACT: 20,
   URGENCY_TODAY: 60,
@@ -391,10 +397,13 @@ export function summarize(items: readonly LifeRecord[], today = localDay()): Pla
 export function suggestDailyLoad(items: readonly LifeRecord[], minutesPerDay: number, today = localDay(), saturate = false, focusCategory?: string) {
   const softCapacity = Math.max(1, minutesPerDay);
   const hardCapacity = softCapacity * 1.3;
+  const ENERGY_BUDGET_PER_DAY = 10; // Max energy points per day
   
   const days = Array.from({ length: 7 }, (_, offset) => ({
     date: new Date(Date.parse(`${today}T00:00:00Z`) + offset * DAY_MS).toISOString().slice(0, 10),
     used: 0,
+    energyConsumed: 0,
+    energyBudget: ENERGY_BUDGET_PER_DAY,
     energyDistribution: { high: 0, medium: 0, low: 0 },
     timeDistribution: { morning: 0, afternoon: 0, evening: 0 },
     entries: [] as PlanEntry[],
@@ -403,6 +412,8 @@ export function suggestDailyLoad(items: readonly LifeRecord[], minutesPerDay: nu
   const plan = buildPlan(items, today, focusCategory);
 
   for (const entry of plan) {
+    const energyCost = entry.item.preferredEnergy ? ENERGY_COSTS[entry.item.preferredEnergy] : 1;
+
     // Strategic Buffering: If the previous day was critically overloaded, 
     // we reduce the capacity for the current day to allow for recovery.
     const getEffectiveCapacity = (dayIndex: number) => {
@@ -412,24 +423,24 @@ export function suggestDailyLoad(items: readonly LifeRecord[], minutesPerDay: nu
     };
 
     const candidates = saturate 
-      ? days.filter((d, idx) => d.used + entry.item.effort <= getEffectiveCapacity(idx))
+      ? days.filter((d, idx) => 
+          d.used + entry.item.effort <= getEffectiveCapacity(idx) && 
+          d.energyConsumed + energyCost <= d.energyBudget
+        )
       : days.filter((day, index) => 
           index <= Math.max(0, Math.min(6, entry.daysUntilDue)) && 
-          day.used + entry.item.effort <= getEffectiveCapacity(index)
+          day.used + entry.item.effort <= getEffectiveCapacity(index) &&
+          day.energyConsumed + energyCost <= day.energyBudget
         );
 
     if (candidates.length === 0) continue;
 
     const target = candidates.sort((a, b) => {
       // Focus-Aware Allocation: Prioritize placing focus-category tasks in the earliest slots
-      // when multiple days are available, to encourage immediate momentum in the focused area.
       if (focusCategory && entry.item.category === focusCategory) {
-        // This is handled implicitly by the loop order (plan is sorted by priority),
-        // but we can favor days with less existing 'distraction' if desired.
       }
 
       // Deep Work Preference: For high-effort tasks (>= 90m), favor days that already have high-effort work
-      // to consolidate intensive blocks rather than scattering them across the week.
       if (entry.item.effort >= 90) {
         const aDeep = a.entries.some(e => e.item.effort >= 90) ? 0 : 1;
         const bDeep = b.entries.some(e => e.item.effort >= 90) ? 0 : 1;
@@ -459,6 +470,7 @@ export function suggestDailyLoad(items: readonly LifeRecord[], minutesPerDay: nu
     
     target.entries.push(entry);
     target.used += entry.item.effort;
+    target.energyConsumed += energyCost;
     if (entry.item.preferredEnergy) {
       target.energyDistribution[entry.item.preferredEnergy] += entry.item.effort;
     }

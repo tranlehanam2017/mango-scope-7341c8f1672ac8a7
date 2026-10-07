@@ -58,5 +58,7 @@ export interface DailyLoadSuggestion {
   criticalOverload: boolean;
   energyDistribution: Record<EnergyLevel, number>;
   timeDistribution: Record<TimeOfDay, number>;
+  energyConsumed: number;
+  energyBudget: number;
   entries: PlanEntry[];
 }
