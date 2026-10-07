@@ -388,7 +388,7 @@ export function summarize(items: readonly LifeRecord[], today = localDay()): Pla
   }, { total: 0, completed: 0, overdue: 0, dueSoon: 0, effort: 0, byCategory: {} });
 }
 
-export function suggestDailyLoad(items: readonly LifeRecord[], minutesPerDay: number, today = localDay(), saturate = false) {
+export function suggestDailyLoad(items: readonly LifeRecord[], minutesPerDay: number, today = localDay(), saturate = false, focusCategory?: string) {
   const softCapacity = Math.max(1, minutesPerDay);
   const hardCapacity = softCapacity * 1.3;
   
@@ -400,7 +400,7 @@ export function suggestDailyLoad(items: readonly LifeRecord[], minutesPerDay: nu
     entries: [] as PlanEntry[],
   }));
 
-  const plan = buildPlan(items, today);
+  const plan = buildPlan(items, today, focusCategory);
 
   for (const entry of plan) {
     // Strategic Buffering: If the previous day was critically overloaded, 
@@ -421,6 +421,13 @@ export function suggestDailyLoad(items: readonly LifeRecord[], minutesPerDay: nu
     if (candidates.length === 0) continue;
 
     const target = candidates.sort((a, b) => {
+      // Focus-Aware Allocation: Prioritize placing focus-category tasks in the earliest slots
+      // when multiple days are available, to encourage immediate momentum in the focused area.
+      if (focusCategory && entry.item.category === focusCategory) {
+        // This is handled implicitly by the loop order (plan is sorted by priority),
+        // but we can favor days with less existing 'distraction' if desired.
+      }
+
       // Deep Work Preference: For high-effort tasks (>= 90m), favor days that already have high-effort work
       // to consolidate intensive blocks rather than scattering them across the week.
       if (entry.item.effort >= 90) {
