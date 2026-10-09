@@ -56,6 +56,7 @@ const WEIGHTS = {
   SMALL_TASK_BOOST: 5,   // Boost for tasks under 30m to encourage 'clearing the decks'
   LARGE_TASK_PENALTY: 10, // Slight penalty for very large tasks to prevent them blocking the queue
   TIME_OF_DAY_BOOST: 8, // Bonus for matching preferred time of day
+  QUICK_WIN_SATURATION_LIMIT: 3, // Max quick-wins per day before they are deprioritized in load suggestion
 };
 
 export function localDay(date = new Date()): string {
@@ -368,12 +369,14 @@ export function suggestDailyLoad(items: readonly LifeRecord[], minutesPerDay: nu
     energyDistribution: { high: 0, medium: 0, low: 0 },
     timeDistribution: { morning: 0, afternoon: 0, evening: 0 },
     entries: [] as PlanEntry[],
+    quickWinCount: 0,
   }));
 
   const plan = buildPlan(items, today, focusCategory);
 
   for (const entry of plan) {
     const energyCost = entry.item.preferredEnergy ? ENERGY_COSTS[entry.item.preferredEnergy] : 1;
+    const isQuickWin = (entry.item.impact / entry.item.effort) > WEIGHTS.EFFICIENCY_THRESHOLD;
 
     const getEffectiveCapacity = (dayIndex: number) => {
       if (dayIndex === 0) return hardCapacity;
@@ -397,6 +400,11 @@ export function suggestDailyLoad(items: readonly LifeRecord[], minutesPerDay: nu
     const target = candidates.sort((a, b) => {
       if (focusCategory && entry.item.category === focusCategory) {
         return days.indexOf(a) - days.indexOf(b);
+      }
+      if (isQuickWin) {
+        const aSaturated = a.quickWinCount >= WEIGHTS.QUICK_WIN_SATURATION_LIMIT ? 1 : 0;
+        const bSaturated = b.quickWinCount >= WEIGHTS.QUICK_WIN_SATURATION_LIMIT ? 1 : 0;
+        if (aSaturated !== bSaturated) return aSaturated - bSaturated;
       }
       if (entry.item.effort >= 90) {
         const aDeep = a.entries.some(e => e.item.effort >= 90) ? 0 : 1;
@@ -422,6 +430,7 @@ export function suggestDailyLoad(items: readonly LifeRecord[], minutesPerDay: nu
     target.entries.push(entry);
     target.used += entry.item.effort;
     target.energyConsumed += energyCost;
+    if (isQuickWin) target.quickWinCount++;
     if (entry.item.preferredEnergy) {
       target.energyDistribution[entry.item.preferredEnergy] += entry.item.effort;
     }
