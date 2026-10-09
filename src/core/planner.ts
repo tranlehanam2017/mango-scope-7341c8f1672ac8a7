@@ -110,11 +110,14 @@ export function priorityFor(item: LifeRecord, today = localDay(), focusCategory?
     }
   }
   
+  let costOfDelay = item.impact;
+
   if (daysUntilDue < 0) {
     const absDays = Math.abs(daysUntilDue);
     const overdueImpactBoost = item.impact * WEIGHTS.OVERDUE_IMPACT_MULTIPLIER;
     score += WEIGHTS.OVERDUE_BASE + overdueImpactBoost + Math.min(absDays, 14) * WEIGHTS.OVERDUE_DAILY;
     reasons.push(`${absDays} day(s) overdue`);
+    costOfDelay += (absDays * 2);
     if (item.impact >= 4) reasons.push("high-value overdue");
     if (absDays <= 3) {
       score += WEIGHTS.OVERDUE_RECENT_BOOST;
@@ -145,9 +148,11 @@ export function priorityFor(item: LifeRecord, today = localDay(), focusCategory?
   } else if (daysUntilDue === 0) {
     score += WEIGHTS.URGENCY_TODAY;
     reasons.push("urgent: due today");
+    costOfDelay += 10;
   } else if (daysUntilDue <= 3) {
     score += WEIGHTS.URGENCY_NEAR;
     reasons.push(`due in ${daysUntilDue} day(s)`);
+    costOfDelay += (5 - daysUntilDue) * 2;
     if (item.impact >= 4) {
       score += item.impact * 2;
       reasons.push("critical stability boost");
@@ -155,6 +160,7 @@ export function priorityFor(item: LifeRecord, today = localDay(), focusCategory?
   } else if (daysUntilDue <= 7) {
     score += WEIGHTS.URGENCY_WEEK;
     reasons.push(`due in ${daysUntilDue} day(s)`);
+    costOfDelay += 2;
     if (daysUntilDue >= 6) {
       score += WEIGHTS.SPRINT_END_BOOST;
       reasons.push("sprint-end surge");
@@ -171,9 +177,9 @@ export function priorityFor(item: LifeRecord, today = localDay(), focusCategory?
   }
 
   const scaledEffort = item.effort > 60 ? 60 + Math.log2(item.effort - 59) * 10 : item.effort;
-  const valueDensity = (item.impact / scaledEffort) * WEIGHTS.WSJF_SCALING_FACTOR;
+  const valueDensity = (costOfDelay / scaledEffort) * WEIGHTS.WSJF_SCALING_FACTOR;
   score += valueDensity;
-  if (valueDensity > 8) reasons.push("high value density");
+  if (valueDensity > 12) reasons.push("high value density (WSJF)");
 
   const efficiency = item.impact / item.effort;
   const isQuickWin = efficiency > WEIGHTS.EFFICIENCY_THRESHOLD;
