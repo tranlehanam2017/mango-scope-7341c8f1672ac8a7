@@ -31,6 +31,7 @@ const WEIGHTS = {
   HYPER_EFFICIENCY_THRESHOLD: 0.4, // Ratio for 'Hyper-Quick Win' boost
   HYPER_EFFICIENCY_BOOST: 10, // Additional boost for hyper-efficient tasks
   FOCUS_BOOST: 50, // Bonus for items matching the selected focus category
+  QUICK_WIN_FOCUS_BOOST: 60, // Specialized boost for focusing on low-effort/high-impact tasks
   FOCUS_INTENSITY_MULTIPLIER: 1.15, // Multiplier for focus category items to amplify other boosts
   DEPENDENCY_PENALTY: 100, // Significant penalty for blocked items
   BATCHING_BONUS: 5, // Bonus per other item of the same category due soon
@@ -238,11 +239,18 @@ export function priorityFor(item: LifeRecord, today = localDay(), focusCategory?
     reasons.push("high community value");
   }
 
-  if (focusCategory && item.category === focusCategory) {
-    score += WEIGHTS.FOCUS_BOOST;
-    reasons.push(`focus: ${focusCategory}`);
-    score *= WEIGHTS.FOCUS_INTENSITY_MULTIPLIER;
-    reasons.push("focus intensity");
+  if (focusCategory) {
+    if (focusCategory === "QuickWins") {
+      if (isQuickWin) {
+        score += WEIGHTS.QUICK_WIN_FOCUS_BOOST;
+        reasons.push("focus: quick wins");
+      }
+    } else if (item.category === focusCategory) {
+      score += WEIGHTS.FOCUS_BOOST;
+      reasons.push(`focus: ${focusCategory}`);
+      score *= WEIGHTS.FOCUS_INTENSITY_MULTIPLIER;
+      reasons.push("focus intensity");
+    }
   }
 
   if (item.dependsOn && allItems) {
@@ -321,7 +329,7 @@ export function buildPlan(items: readonly LifeRecord[], today = localDay(), focu
     const aEff = a.item.impact / a.item.effort;
     const bEff = b.item.impact / b.item.effort;
     const isQuickWin = aEff > WEIGHTS.EFFICIENCY_THRESHOLD || bEff > WEIGHTS.EFFICIENCY_THRESHOLD;
-    const stability = isQuickWin ? WEIGHTS.STABILITY_THRESHOLD * 0.2 : WEIGHTS.STABILITY_THRESHOLD;
+    const stability = isQuickWin ? WEIGHTS.STABILITY_THRESHOLD * 0.1 : WEIGHTS.STABILITY_THRESHOLD;
 
     if (Math.abs(diff) < stability) {
       const dateDiff = a.item.dueDate.localeCompare(b.item.dueDate);
