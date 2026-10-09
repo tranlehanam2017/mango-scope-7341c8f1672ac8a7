@@ -95,14 +95,11 @@ export function priorityFor(item: LifeRecord, today = localDay(), focusCategory?
   const daysUntilDue = daysBetween(today, item.dueDate);
   const reasons: string[] = [];
   
-  // Base score from impact
   let score = item.impact * WEIGHTS.IMPACT;
 
-  // Multi-dimensional impact boost
   if (item.impactDimensions) {
     const dimCount = Object.keys(item.impactDimensions).length;
     const dimSum = Object.values(item.impactDimensions).reduce((a, b) => a + b, 0);
-    
     if (dimCount > 0) {
       const dimBoost = (dimSum * WEIGHTS.DIMENSION_WEIGHT) / (dimCount || 1);
       score += dimBoost;
@@ -112,51 +109,30 @@ export function priorityFor(item: LifeRecord, today = localDay(), focusCategory?
   
   if (daysUntilDue < 0) {
     const absDays = Math.abs(daysUntilDue);
-    
-    // High-impact overdue items should surface faster than low-impact ones
     const overdueImpactBoost = item.impact * WEIGHTS.OVERDUE_IMPACT_MULTIPLIER;
     score += WEIGHTS.OVERDUE_BASE + overdueImpactBoost + Math.min(absDays, 14) * WEIGHTS.OVERDUE_DAILY;
-    
     reasons.push(`${absDays} day(s) overdue`);
     if (item.impact >= 4) reasons.push("high-value overdue");
-
-    // Boost for items only slightly overdue to prioritize rapid recovery
     if (absDays <= 3) {
       score += WEIGHTS.OVERDUE_RECENT_BOOST;
       reasons.push("recent overdue recovery");
     }
-
-    // Prevent stagnation: items overdue by more than 2 weeks get a secondary kick
     if (absDays > 14) {
       score += WEIGHTS.OVERDUE_STAGNATION_KICK;
       reasons.push("stagnation boost");
     }
-
-    // Risk Factor: Large overdue tasks often get pushed because they are intimidating. 
-    // We boost them slightly to ensure they don't just vanish from the top of the list.
-    if (item.effort > WEIGHTS.RISK_EFFORT_THRESHOLD) {
-      // Refined: Only boost high-effort tasks if they also have significant impact, 
-      // otherwise we risk surfacing 'bloat' tasks over quick wins.
-      if (item.impact >= 3) {
-        score += WEIGHTS.RISK_BOOST;
-        reasons.push("high-effort risk boost");
-      }
+    if (item.effort > WEIGHTS.RISK_EFFORT_THRESHOLD && item.impact >= 3) {
+      score += WEIGHTS.RISK_BOOST;
+      reasons.push("high-effort risk boost");
     }
-
-    // Penalty for overdue items that are not actively being worked on
     if (item.status === "planned") {
       score -= WEIGHTS.OVERDUE_INACTIVE_PENALTY;
       reasons.push("inactive overdue penalty");
     }
-
-    // At-Risk Multiplier: Critical overdue tasks get a multiplier to ensure they stay visible
     if (item.impact >= 4) {
       score *= WEIGHTS.AT_RISK_MULTIPLIER;
       reasons.push("at-risk critical");
     }
-
-    // Long-term decay: if a task is extremely overdue and not active, it's likely stale.
-    // Gradually reduce priority so the list isn't permanently clogged with old, ignored tasks.
     if (absDays > WEIGHTS.STALE_DECAY_START && item.status !== "active") {
       const staleDays = absDays - WEIGHTS.STALE_DECAY_START;
       const decay = staleDays * WEIGHTS.STALE_DECAY_RATE;
@@ -169,9 +145,6 @@ export function priorityFor(item: LifeRecord, today = localDay(), focusCategory?
   } else if (daysUntilDue <= 3) {
     score += WEIGHTS.URGENCY_NEAR;
     reasons.push(`due in ${daysUntilDue} day(s)`);
-    
-    // Stability Boost: High-impact tasks nearing their deadline should not be easily
-    // bumped by new small tasks. We add a small stability weight based on impact.
     if (item.impact >= 4) {
       score += item.impact * 2;
       reasons.push("critical stability boost");
@@ -180,77 +153,60 @@ export function priorityFor(item: LifeRecord, today = localDay(), focusCategory?
     score += WEIGHTS.URGENCY_WEEK;
     reasons.push(`due in ${daysUntilDue} day(s)`);
   } else {
-    // Decay score for items far in the future to favor closer (though not urgent) items
     const decay = Math.min(WEIGHTS.DISTANT_DECAY_MAX, Math.floor(daysUntilDue / 10));
     score -= decay;
     if (decay > 0) reasons.push("scheduled for future");
   }
 
-  // Critical Path Boost: High-impact items due in the next 48 hours
   if (item.impact >= 4 && daysUntilDue >= 0 && daysUntilDue <= 1) {
     score += WEIGHTS.CRITICAL_PATH_BOOST;
     reasons.push("critical path item");
   }
 
-  // Refined WSJF-inspired Value Density: (Impact / Effort) * Scale
-  // Adjusted: We use a logarithmic dampener for effort to ensure that
-  // very high-effort tasks still get some priority if impact is massive.
   const scaledEffort = item.effort > 60 ? 60 + Math.log2(item.effort - 59) * 10 : item.effort;
   const valueDensity = (item.impact / scaledEffort) * WEIGHTS.WSJF_SCALING_FACTOR;
   score += valueDensity;
   if (valueDensity > 8) reasons.push("high value density");
 
-  // Efficiency Ratio: Scaled bonus for high impact relative to effort (Quick Wins)
   const efficiency = item.impact / item.effort;
   const isQuickWin = efficiency > WEIGHTS.EFFICIENCY_THRESHOLD;
   if (isQuickWin) {
     const efficiencyFactor = Math.min(1, (efficiency - WEIGHTS.EFFICIENCY_THRESHOLD) / 0.35);
     score += efficiencyFactor * WEIGHTS.EFFICIENCY_BOOST_MAX;
     reasons.push("quick win");
-    
     if (efficiency > WEIGHTS.HYPER_EFFICIENCY_THRESHOLD) {
       score += WEIGHTS.HYPER_EFFICIENCY_BOOST;
       reasons.push("hyper-efficient");
     }
   }
 
-  // Capacity Fit: Small bonus for items that align with common work blocks
   const commonBlocks = [15, 30, 45, 60, 90, 120];
   if (commonBlocks.includes(item.effort)) {
     score += WEIGHTS.CAPACITY_FIT_BONUS;
     reasons.push("optimal time block");
   }
 
-  // Effort penalty: progressive penalty for very large tasks
   let effortPenalty = 0;
   if (item.effort > 60) {
     const excess = item.effort - 60;
     effortPenalty = Math.min(30, Math.log2(excess + 1) * 4);
   }
-  
-  // Workload-aware penalty for oversized tasks
   if (item.effort > 240) {
     const oversized = item.effort - 240;
     effortPenalty += WEIGHTS.OVERSIZE_PENALTY_BASE + Math.floor(oversized / 60) * 5;
     reasons.push("oversized effort penalty");
   }
-  
   score -= effortPenalty;
 
   if (item.status === "active") {
     score *= WEIGHTS.ACTIVE_BOOST;
     reasons.push("already in progress");
-
     const lastUpdated = new Date(item.updatedAt);
     const now = new Date();
-    const diffMs = now.getTime() - lastUpdated.getTime();
-    const diffHours = diffMs / (1000 * 60 * 60);
-    
+    const diffHours = (now.getTime() - lastUpdated.getTime()) / (1000 * 60 * 60);
     if (diffHours < WEIGHTS.MOMENTUM_DECAY_HOURS) {
-      // Linear decay for momentum: reward recent activity to maintain focus
       const decayFactor = 1 - (diffHours / WEIGHTS.MOMENTUM_DECAY_HOURS);
-      const momentum = WEIGHTS.MOMENTUM_BOOST_MAX * decayFactor;
-      score += momentum;
+      score += WEIGHTS.MOMENTUM_BOOST_MAX * decayFactor;
       reasons.push("recent momentum");
     }
   }
@@ -263,12 +219,10 @@ export function priorityFor(item: LifeRecord, today = localDay(), focusCategory?
   if (focusCategory && item.category === focusCategory) {
     score += WEIGHTS.FOCUS_BOOST;
     reasons.push(`focus: ${focusCategory}`);
-    // Focus Intensity: amplify the total score to make focus items dominate other logic
     score *= WEIGHTS.FOCUS_INTENSITY_MULTIPLIER;
     reasons.push("focus intensity");
   }
 
-  // Dependency Penalty
   if (item.dependsOn && allItems) {
     const dependency = allItems.find(r => r.id === item.dependsOn);
     if (dependency && dependency.status !== "done" && dependency.status !== "archived") {
@@ -277,43 +231,30 @@ export function priorityFor(item: LifeRecord, today = localDay(), focusCategory?
     }
   }
 
-  // Sub-task propagation: If this is a sub-task, inherit some value from the parent
   if (item.parentId && allItems) {
     const parent = allItems.find(r => r.id === item.parentId);
-    if (parent && parent.status !== "done" && parent.status !== "archived") {
-      if (parent.impact >= 4) {
-        score += WEIGHTS.SUBTASK_BOOST;
-        reasons.push(`sub-task of ${parent.title}`);
-      }
+    if (parent && parent.status !== "done" && parent.status !== "archived" && parent.impact >= 4) {
+      score += WEIGHTS.SUBTASK_BOOST;
+      reasons.push(`sub-task of ${parent.title}`);
     }
   }
 
-  // Batching Bonus & Sequential Momentum
   if (allItems) {
     const siblings = allItems.filter(r => 
-      r.id !== item.id && 
-      r.category === item.category && 
-      r.status !== "done" && 
-      r.status !== "archived" &&
+      r.id !== item.id && r.category === item.category && 
+      r.status !== "done" && r.status !== "archived" &&
       Math.abs(daysBetween(today, r.dueDate)) <= 3
     );
     if (siblings.length > 0) {
       const isBatchingQuickWins = isQuickWin && siblings.some(s => (s.impact / s.effort) > WEIGHTS.EFFICIENCY_THRESHOLD);
       const bonusPerItem = isBatchingQuickWins ? WEIGHTS.QUICK_WIN_BATCH_BONUS : WEIGHTS.BATCHING_BONUS;
-      
       score += siblings.length * bonusPerItem;
-      
-      // Batch Momentum: amplify score slightly for each additional task in the batch
-      // to favor grouping tasks of the same category together in the final plan.
-      const momentumMult = Math.pow(WEIGHTS.BATCH_MOMENTUM_MULTIPLIER, siblings.length);
-      score *= momentumMult;
-
+      score *= Math.pow(WEIGHTS.BATCH_MOMENTUM_MULTIPLIER, siblings.length);
       reasons.push(`batching: ${siblings.length} similar tasks${isBatchingQuickWins ? ' (quick-win loop)' : ''}`);
       if (siblings.length >= 3) reasons.push("batch momentum");
     }
   }
 
-  // Churn Penalty: Penalize items that have been postponed multiple times
   if (item.postponedCount && item.postponedCount > 0) {
     const count = item.postponedCount;
     const churnPenalty = count < WEIGHTS.POSTPONE_THRESHOLD 
@@ -323,18 +264,11 @@ export function priorityFor(item: LifeRecord, today = localDay(), focusCategory?
     reasons.push(`postponed ${count}x`);
   }
 
-  // Complexity multiplier: Nuanced tasks (those with multiple impact dimensions)
-  // get a slight boost to ensure they don't get buried by simple high-impact tasks.
   if (item.impactDimensions && Object.keys(item.impactDimensions).length > 1) {
     score *= WEIGHTS.COMPLEXITY_MULTIPLIER;
     reasons.push("complexity weight");
-
-    // Complexity-to-Effort Penalty: If a task is both complex (many dimensions) 
-    // and high-effort, it's a candidate for breaking down. We penalize it slightly 
-    // to encourage splitting it into smaller, more manageable sub-tasks.
     if (item.effort > 120) {
-      const dimCount = Object.keys(item.impactDimensions).length;
-      const complexityPenalty = dimCount * WEIGHTS.COMPLEXITY_EFFORT_PENALTY;
+      const complexityPenalty = Object.keys(item.impactDimensions).length * WEIGHTS.COMPLEXITY_EFFORT_PENALTY;
       score -= complexityPenalty;
       reasons.push(`complexity/effort penalty (-${complexityPenalty})`);
     }
@@ -342,7 +276,7 @@ export function priorityFor(item: LifeRecord, today = localDay(), focusCategory?
 
   if (item.status === "done" || item.status === "archived") score = -1;
   if (item.status === "stale") {
-    score -= 100; // Significant deprioritization for explicitly stale items
+    score -= 100;
     reasons.push("marked as stale");
   }
   if (reasons.length === 0) reasons.push("ranked by impact and effort");
@@ -357,23 +291,15 @@ export function buildPlan(items: readonly LifeRecord[], today = localDay(), focu
 
   return entries.sort((a, b) => {
     const diff = b.score - a.score;
-    
-    // Refined stability: Use a threshold to prevent rank-swapping for very similar tasks.
-    // High efficiency tasks (quick wins) have a tighter stability window to allow them to move up easier.
     const aEff = a.item.impact / a.item.effort;
     const bEff = b.item.impact / b.item.effort;
     const isQuickWin = aEff > WEIGHTS.EFFICIENCY_THRESHOLD || bEff > WEIGHTS.EFFICIENCY_THRESHOLD;
     const stability = isQuickWin ? WEIGHTS.STABILITY_THRESHOLD * 0.5 : WEIGHTS.STABILITY_THRESHOLD;
 
     if (Math.abs(diff) < stability) {
-      // Tie-break 1: Prefer items due sooner
       const dateDiff = a.item.dueDate.localeCompare(b.item.dueDate);
       if (dateDiff !== 0) return dateDiff;
-      
-      // Tie-break 2: Prefer items with higher impact
       if (a.item.impact !== b.item.impact) return b.item.impact - a.item.impact;
-      
-      // Tie-break 3: Deterministic ID sort to prevent unstable lists
       return a.item.id.localeCompare(b.item.id);
     }
     return diff || a.item.dueDate.localeCompare(b.item.dueDate);
@@ -436,29 +362,24 @@ export function suggestDailyLoad(items: readonly LifeRecord[], minutesPerDay: nu
       if (focusCategory && entry.item.category === focusCategory) {
         return days.indexOf(a) - days.indexOf(b);
       }
-
       if (entry.item.effort >= 90) {
         const aDeep = a.entries.some(e => e.item.effort >= 90) ? 0 : 1;
         const bDeep = b.entries.some(e => e.item.effort >= 90) ? 0 : 1;
         if (aDeep !== bDeep) return aDeep - bDeep;
       }
-
       if (entry.item.effort >= 60) {
         const aMax = a.entries.length ? Math.max(...a.entries.map(e => e.item.effort)) : 0;
         const bMax = b.entries.length ? Math.max(...b.entries.map(e => e.item.effort)) : 0;
         if (aMax !== bMax) return aMax - bMax;
       }
-
       if (entry.item.preferredEnergy) {
         const aEnergy = a.energyDistribution[entry.item.preferredEnergy];
         const bEnergy = b.energyDistribution[entry.item.preferredEnergy];
         if (aEnergy !== bEnergy) return aEnergy - bEnergy;
       }
-
       const aUnder = a.used < softCapacity ? 0 : 1;
       const bUnder = b.used < softCapacity ? 0 : 1;
       if (aUnder !== bUnder) return aUnder - bUnder;
-      
       return a.used - b.used;
     })[0];
     
@@ -482,51 +403,32 @@ export function suggestDailyLoad(items: readonly LifeRecord[], minutesPerDay: nu
 export function forecastBurnDown(items: readonly LifeRecord[], minutesPerDay: number, today = localDay()) {
   const capacity = Math.max(1, minutesPerDay);
   const pending = items.filter(i => i.status !== "done" && i.status !== "archived");
-  
   const totalEffort = pending.reduce((sum, i) => sum + (i.effort > 120 ? i.effort * 1.2 : i.effort), 0);
-  
   const daysToComplete = Math.ceil(totalEffort / capacity);
   const completionDate = new Date(Date.parse(`${today}T00:00:00Z`) + daysToComplete * DAY_MS).toISOString().slice(0, 10);
-
-  const riskEffort = pending.reduce((sum, i) => {
-    return sum + (i.effort > 120 ? i.effort * 1.4 : i.effort);
-  }, 0);
+  const riskEffort = pending.reduce((sum, i) => sum + (i.effort > 120 ? i.effort * 1.4 : i.effort), 0);
   const riskDays = Math.ceil(riskEffort / capacity);
   const riskCompletionDate = new Date(Date.parse(`${today}T00:00:00Z`) + riskDays * DAY_MS).toISOString().slice(0, 10);
-
   const meanEffort = pending.length ? totalEffort / pending.length : 0;
   const variance = pending.length ? pending.reduce((sum, i) => sum + Math.pow(i.effort - meanEffort, 2), 0) / pending.length : 0;
   const stdDev = Math.sqrt(variance);
-  
   const volatileEffort = totalEffort + stdDev;
   const volatileDays = Math.ceil(volatileEffort / capacity);
   const volatileCompletionDate = new Date(Date.parse(`${today}T00:00:00Z`) + volatileDays * DAY_MS).toISOString().slice(0, 10);
-
   const totalImpact = pending.reduce((sum, i) => sum + i.impact, 0);
   const criticalityScore = pending.length ? Math.round((totalImpact / pending.length) * (stdDev / (meanEffort || 1)) * 10) : 0;
-
   const volatilityRatio = meanEffort ? stdDev / meanEffort : 0;
   const confidenceScore = Math.max(0, Math.min(100, Math.round(100 * (1 - volatilityRatio))));
-
   const trend = Array.from({ length: 30 }, (_, i) => {
     const date = new Date(Date.parse(`${today}T00:00:00Z`) + i * DAY_MS).toISOString().slice(0, 10);
     const remaining = Math.max(0, totalEffort - (i + 1) * capacity);
     return { date, remaining };
   });
-
   return {
-    totalEffort,
-    daysToComplete,
-    completionDate,
-    riskDays,
-    riskCompletionDate,
-    volatileDays,
-    volatileCompletionDate,
+    totalEffort, daysToComplete, completionDate, riskDays, riskCompletionDate, volatileDays, volatileCompletionDate,
     averageEffortPerItem: pending.length ? Math.round(totalEffort / pending.length) : 0,
     volatilityScore: pending.length ? Math.round((stdDev / meanEffort) * 100) : 0,
-    criticalityScore,
-    confidenceScore,
-    trend
+    criticalityScore, confidenceScore, trend
   };
 }
 
@@ -535,22 +437,15 @@ export function forecastBurnUp(items: readonly LifeRecord[], minutesPerDay: numb
   const totalProjectEffort = items.reduce((sum, i) => sum + i.effort, 0);
   const completedEffort = items.filter(i => i.status === "done" || i.status === "archived").reduce((sum, i) => sum + i.effort, 0);
   const pendingEffort = totalProjectEffort - completedEffort;
-  
   const daysToComplete = Math.ceil(pendingEffort / capacity);
   const completionDate = new Date(Date.parse(`${today}T00:00:00Z`) + daysToComplete * DAY_MS).toISOString().slice(0, 10);
-
   const trend = Array.from({ length: 30 }, (_, i) => {
     const date = new Date(Date.parse(`${today}T00:00:00Z`) + i * DAY_MS).toISOString().slice(0, 10);
     const completed = Math.min(totalProjectEffort, completedEffort + (i + 1) * capacity);
     return { date, completed };
   });
-
   return {
-    totalProjectEffort,
-    completedEffort,
-    pendingEffort,
-    daysToComplete,
-    completionDate,
+    totalProjectEffort, completedEffort, pendingEffort, daysToComplete, completionDate,
     progressPercent: totalProjectEffort ? Math.round((completedEffort / totalProjectEffort) * 100) : 0,
     trend
   };
@@ -563,13 +458,10 @@ export function analyzeEisenhower(item: LifeRecord, today = localDay()): Eisenho
   const isUrgent = daysUntilDue <= 2;
   const isImportant = item.impact >= 4;
   const isHighEffort = item.effort > 180;
-
   if (isUrgent && isImportant) return "DO_FIRST";
   if (!isUrgent && isImportant) return "SCHEDULE";
   if (isUrgent && !isImportant) return "DELEGATE";
-  
   if (!isImportant && isHighEffort) return "ELIMINATE";
-  
   return "ELIMINATE";
 }
 
@@ -598,7 +490,6 @@ export function filterRecords(items: readonly LifeRecord[], filter: RecordFilter
     if (filter.maxEffort !== undefined && item.effort > filter.maxEffort) return false;
     if (filter.overdueOnly && daysBetween(today, item.dueDate) >= 0) return false;
     if (filter.urgentOnly && daysBetween(today, item.dueDate) > 2) return false;
-    
     return true;
   });
 }
