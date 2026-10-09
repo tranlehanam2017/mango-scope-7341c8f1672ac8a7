@@ -397,13 +397,12 @@ export function summarize(items: readonly LifeRecord[], today = localDay()): Pla
 export function suggestDailyLoad(items: readonly LifeRecord[], minutesPerDay: number, today = localDay(), saturate = false, focusCategory?: string) {
   const softCapacity = Math.max(1, minutesPerDay);
   const hardCapacity = softCapacity * 1.3;
-  const ENERGY_BUDGET_PER_DAY = 10; // Max energy points per day
   
   const days = Array.from({ length: 7 }, (_, offset) => ({
     date: new Date(Date.parse(`${today}T00:00:00Z`) + offset * DAY_MS).toISOString().slice(0, 10),
     used: 0,
     energyConsumed: 0,
-    energyBudget: ENERGY_BUDGET_PER_DAY,
+    energyBudget: 10,
     energyDistribution: { high: 0, medium: 0, low: 0 },
     timeDistribution: { morning: 0, afternoon: 0, evening: 0 },
     entries: [] as PlanEntry[],
@@ -414,8 +413,6 @@ export function suggestDailyLoad(items: readonly LifeRecord[], minutesPerDay: nu
   for (const entry of plan) {
     const energyCost = entry.item.preferredEnergy ? ENERGY_COSTS[entry.item.preferredEnergy] : 1;
 
-    // Strategic Buffering: If the previous day was critically overloaded, 
-    // we reduce the capacity for the current day to allow for recovery.
     const getEffectiveCapacity = (dayIndex: number) => {
       if (dayIndex === 0) return hardCapacity;
       const prevDay = days[dayIndex - 1];
@@ -436,26 +433,20 @@ export function suggestDailyLoad(items: readonly LifeRecord[], minutesPerDay: nu
     if (candidates.length === 0) continue;
 
     const target = candidates.sort((a, b) => {
-      // Focus-Aware Allocation: Prioritize placing focus-category tasks in the earliest slots
       if (focusCategory && entry.item.category === focusCategory) {
-        const aIdx = days.indexOf(a);
-        const bIdx = days.indexOf(b);
-        return aIdx - bIdx;
+        return days.indexOf(a) - days.indexOf(b);
       }
 
-      // Deep Work Preference: For high-effort tasks (>= 90m), favor days that already have high-effort work
       if (entry.item.effort >= 90) {
         const aDeep = a.entries.some(e => e.item.effort >= 90) ? 0 : 1;
         const bDeep = b.entries.some(e => e.item.effort >= 90) ? 0 : 1;
         if (aDeep !== bDeep) return aDeep - bDeep;
       }
 
-      // Balanced Effort: If the task is medium-to-large, avoid placing it on a day
-      // that is already significantly occupied by a single massive task (concentration risk).
       if (entry.item.effort >= 60) {
         const aMax = a.entries.length ? Math.max(...a.entries.map(e => e.item.effort)) : 0;
         const bMax = b.entries.length ? Math.max(...b.entries.map(e => e.item.effort)) : 0;
-        if (aMax !== bMax) return aMax - bMax; // Prefer the day with the smaller 'largest' task
+        if (aMax !== bMax) return aMax - bMax;
       }
 
       if (entry.item.preferredEnergy) {
@@ -492,8 +483,6 @@ export function forecastBurnDown(items: readonly LifeRecord[], minutesPerDay: nu
   const capacity = Math.max(1, minutesPerDay);
   const pending = items.filter(i => i.status !== "done" && i.status !== "archived");
   
-  // Risk-Aware Effort Scaling: Items over 120m are penalized by 20% in forecast to 
-  // account for the likely avoidance/decomposition overhead of large tasks.
   const totalEffort = pending.reduce((sum, i) => sum + (i.effort > 120 ? i.effort * 1.2 : i.effort), 0);
   
   const daysToComplete = Math.ceil(totalEffort / capacity);
@@ -516,12 +505,9 @@ export function forecastBurnDown(items: readonly LifeRecord[], minutesPerDay: nu
   const totalImpact = pending.reduce((sum, i) => sum + i.impact, 0);
   const criticalityScore = pending.length ? Math.round((totalImpact / pending.length) * (stdDev / (meanEffort || 1)) * 10) : 0;
 
-  // Confidence Score: Based on the ratio of standard deviation to mean effort.
-  // Lower volatility (stdDev) means higher confidence in the completion date.
   const volatilityRatio = meanEffort ? stdDev / meanEffort : 0;
   const confidenceScore = Math.max(0, Math.min(100, Math.round(100 * (1 - volatilityRatio))));
 
-  // Multi-day trend forecast
   const trend = Array.from({ length: 30 }, (_, i) => {
     const date = new Date(Date.parse(`${today}T00:00:00Z`) + i * DAY_MS).toISOString().slice(0, 10);
     const remaining = Math.max(0, totalEffort - (i + 1) * capacity);
@@ -553,7 +539,6 @@ export function forecastBurnUp(items: readonly LifeRecord[], minutesPerDay: numb
   const daysToComplete = Math.ceil(pendingEffort / capacity);
   const completionDate = new Date(Date.parse(`${today}T00:00:00Z`) + daysToComplete * DAY_MS).toISOString().slice(0, 10);
 
-  // Multi-day trend forecast
   const trend = Array.from({ length: 30 }, (_, i) => {
     const date = new Date(Date.parse(`${today}T00:00:00Z`) + i * DAY_MS).toISOString().slice(0, 10);
     const completed = Math.min(totalProjectEffort, completedEffort + (i + 1) * capacity);
@@ -583,7 +568,6 @@ export function analyzeEisenhower(item: LifeRecord, today = localDay()): Eisenho
   if (!isUrgent && isImportant) return "SCHEDULE";
   if (isUrgent && !isImportant) return "DELEGATE";
   
-  // Refinement: High-effort, low-impact tasks are prime candidates for elimination
   if (!isImportant && isHighEffort) return "ELIMINATE";
   
   return "ELIMINATE";
