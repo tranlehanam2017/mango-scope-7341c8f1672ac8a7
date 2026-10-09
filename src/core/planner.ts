@@ -54,6 +54,7 @@ const WEIGHTS = {
   SPRINT_END_BOOST: 20, // Boost for items due at the end of the weekly window (day 6-7)
   SMALL_TASK_BOOST: 5,   // Boost for tasks under 30m to encourage 'clearing the decks'
   LARGE_TASK_PENALTY: 10, // Slight penalty for very large tasks to prevent them blocking the queue
+  TIME_OF_DAY_BOOST: 8, // Bonus for matching preferred time of day
 };
 
 export function localDay(date = new Date()): string {
@@ -193,7 +194,7 @@ export function priorityFor(item: LifeRecord, today = localDay(), focusCategory?
     }
   }
 
-  const commonBlocks = [15, 30, 45, 60, 90, 120];
+  const commonBlocks = [15, 30, 45, 60, 90, 120, 180, 240];
   if (commonBlocks.includes(item.effort)) {
     score += WEIGHTS.CAPACITY_FIT_BONUS;
     reasons.push("optimal time block");
@@ -293,6 +294,11 @@ export function priorityFor(item: LifeRecord, today = localDay(), focusCategory?
       score -= complexityPenalty;
       reasons.push(`complexity/effort penalty (-${complexityPenalty})`);
     }
+  }
+
+  if (item.preferredTime) {
+    score += WEIGHTS.TIME_OF_DAY_BOOST;
+    reasons.push(`preferred time: ${item.preferredTime}`);
   }
 
   if (item.status === "done" || item.status === "archived") score = -1;
