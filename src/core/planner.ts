@@ -294,7 +294,7 @@ export function buildPlan(items: readonly LifeRecord[], today = localDay(), focu
     const aEff = a.item.impact / a.item.effort;
     const bEff = b.item.impact / b.item.effort;
     const isQuickWin = aEff > WEIGHTS.EFFICIENCY_THRESHOLD || bEff > WEIGHTS.EFFICIENCY_THRESHOLD;
-    const stability = isQuickWin ? WEIGHTS.STABILITY_THRESHOLD * 0.5 : WEIGHTS.STABILITY_THRESHOLD;
+    const stability = isQuickWin ? WEIGHTS.STABILITY_THRESHOLD * 0.2 : WEIGHTS.STABILITY_THRESHOLD;
 
     if (Math.abs(diff) < stability) {
       const dateDiff = a.item.dueDate.localeCompare(b.item.dueDate);
@@ -323,12 +323,13 @@ export function summarize(items: readonly LifeRecord[], today = localDay()): Pla
 export function suggestDailyLoad(items: readonly LifeRecord[], minutesPerDay: number, today = localDay(), saturate = false, focusCategory?: string) {
   const softCapacity = Math.max(1, minutesPerDay);
   const hardCapacity = softCapacity * 1.3;
+  const baseEnergyBudget = Math.max(5, Math.ceil(softCapacity / 30));
   
   const days = Array.from({ length: 7 }, (_, offset) => ({
     date: new Date(Date.parse(`${today}T00:00:00Z`) + offset * DAY_MS).toISOString().slice(0, 10),
     used: 0,
     energyConsumed: 0,
-    energyBudget: 10,
+    energyBudget: baseEnergyBudget,
     energyDistribution: { high: 0, medium: 0, low: 0 },
     timeDistribution: { morning: 0, afternoon: 0, evening: 0 },
     entries: [] as PlanEntry[],
