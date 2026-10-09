@@ -51,6 +51,9 @@ const WEIGHTS = {
   OVERSIZE_PENALTY_BASE: 15, // Base penalty for tasks exceeding half a standard workday (240m)
   COMPLEXITY_EFFORT_PENALTY: 4, // Penalty per dimension when effort is high
   PREFERENCE_BOOST: 10, // Bonus for alignment with current time/energy context
+  SPRINT_END_BOOST: 20, // Boost for items due at the end of the weekly window (day 6-7)
+  SMALL_TASK_BOOST: 5,   // Boost for tasks under 30m to encourage 'clearing the decks'
+  LARGE_TASK_PENALTY: 10, // Slight penalty for very large tasks to prevent them blocking the queue
 };
 
 export function localDay(date = new Date()): string {
@@ -152,6 +155,10 @@ export function priorityFor(item: LifeRecord, today = localDay(), focusCategory?
   } else if (daysUntilDue <= 7) {
     score += WEIGHTS.URGENCY_WEEK;
     reasons.push(`due in ${daysUntilDue} day(s)`);
+    if (daysUntilDue >= 6) {
+      score += WEIGHTS.SPRINT_END_BOOST;
+      reasons.push("sprint-end surge");
+    }
   } else {
     const decay = Math.min(WEIGHTS.DISTANT_DECAY_MAX, Math.floor(daysUntilDue / 10));
     score -= decay;
@@ -187,6 +194,14 @@ export function priorityFor(item: LifeRecord, today = localDay(), focusCategory?
   }
 
   let effortPenalty = 0;
+  if (item.effort < 30) {
+    score += WEIGHTS.SMALL_TASK_BOOST;
+    reasons.push("deck-clearer boost");
+  } else if (item.effort > 180) {
+    score -= WEIGHTS.LARGE_TASK_PENALTY;
+    reasons.push("large task penalty");
+  }
+
   if (item.effort > 60) {
     const excess = item.effort - 60;
     effortPenalty = Math.min(30, Math.log2(excess + 1) * 4);
