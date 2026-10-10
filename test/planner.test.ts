@@ -177,6 +177,19 @@ describe("planning engine", () => {
       expect(scoreQuick).toBeGreaterThan(scoreMarathon);
       expect(priorityFor(highValueLowEffort, today).reasons).toContain("high value density");
     });
+
+    it("applies category weight from theme", () => {
+      const today = "2026-08-20";
+      const weightedItem = item({ id: "w", category: "Food", impact: 3 });
+      const normalItem = item({ id: "n", category: "Education", impact: 3 });
+      
+      // Food weight is 1.2, Education is 1.0
+      const scoreWeighted = priorityFor(weightedItem, today, undefined, undefined, theme).score;
+      const scoreNormal = priorityFor(normalItem, today, undefined, undefined, theme).score;
+      
+      expect(scoreWeighted).toBeGreaterThan(scoreNormal);
+      expect(priorityFor(weightedItem, today, undefined, undefined, theme).reasons).toContain("category priority (x1.2)");
+    });
   });
 
   describe("workload forecasting", () => {

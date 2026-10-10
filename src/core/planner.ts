@@ -98,11 +98,17 @@ export function validateRecord(input: Partial<LifeRecord>, theme: ThemeConfig): 
   return errors;
 }
 
-export function priorityFor(item: LifeRecord, today = localDay(), focusCategory?: string, allItems?: readonly LifeRecord[]): PlanEntry {
+export function priorityFor(item: LifeRecord, today = localDay(), focusCategory?: string, allItems?: readonly LifeRecord[], theme?: ThemeConfig): PlanEntry {
   const daysUntilDue = daysBetween(today, item.dueDate);
   const reasons: string[] = [];
   
   let score = item.impact * WEIGHTS.IMPACT;
+
+  if (theme?.categoryWeights && theme.categoryWeights[item.category]) {
+    const weight = theme.categoryWeights[item.category];
+    score *= weight;
+    if (weight !== 1) reasons.push(`category priority (x${weight})`);
+  }
 
   if (item.impactDimensions) {
     const dimCount = Object.keys(item.impactDimensions).length;
@@ -328,9 +334,9 @@ export function priorityFor(item: LifeRecord, today = localDay(), focusCategory?
   return { item, score: Math.round(score * 10) / 10, reasons, daysUntilDue };
 }
 
-export function buildPlan(items: readonly LifeRecord[], today = localDay(), focusCategory?: string): PlanEntry[] {
+export function buildPlan(items: readonly LifeRecord[], today = localDay(), focusCategory?: string, theme?: ThemeConfig): PlanEntry[] {
   const entries = items
-    .map((item) => priorityFor(item, today, focusCategory, items))
+    .map((item) => priorityFor(item, today, focusCategory, items, theme))
     .filter((entry) => entry.item.status !== "done" && entry.item.status !== "archived");
 
   return entries.sort((a, b) => {
@@ -364,7 +370,7 @@ export function summarize(items: readonly LifeRecord[], today = localDay()): Pla
   }, { total: 0, completed: 0, overdue: 0, dueSoon: 0, effort: 0, byCategory: {} });
 }
 
-export function suggestDailyLoad(items: readonly LifeRecord[], minutesPerDay: number, today = localDay(), saturate = false, focusCategory?: string) {
+export function suggestDailyLoad(items: readonly LifeRecord[], minutesPerDay: number, today = localDay(), saturate = false, focusCategory?: string, theme?: ThemeConfig) {
   const softCapacity = Math.max(1, minutesPerDay);
   const hardCapacity = softCapacity * 1.3;
   const baseEnergyBudget = Math.max(5, Math.ceil(softCapacity / 30));
@@ -380,7 +386,7 @@ export function suggestDailyLoad(items: readonly LifeRecord[], minutesPerDay: nu
     quickWinCount: 0,
   }));
 
-  const plan = buildPlan(items, today, focusCategory);
+  const plan = buildPlan(items, today, focusCategory, theme);
 
   for (const entry of plan) {
     const energyCost = entry.item.preferredEnergy ? ENERGY_COSTS[entry.item.preferredEnergy] : 1;

@@ -15,6 +15,13 @@ export const theme = {
     "Outreach",
     "Logistics"
   ],
+  "categoryWeights": {
+    "Food": 1.2,
+    "Education": 1.0,
+    "Environment": 1.0,
+    "Outreach": 1.1,
+    "Logistics": 0.9
+  },
   "categoryColors": {
     "Food": "#e67e22",
     "Education": "#3498db",

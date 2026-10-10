@@ -32,6 +32,7 @@ export interface ThemeConfig {
   readonly impactLabel: string;
   readonly categories: readonly string[];
   readonly categoryColors: Readonly<Record<string, string>>;
+  readonly categoryWeights?: Readonly<Record<string, number>>;
   readonly seeds: readonly (readonly [string, string, number, number])[];
 }
 
