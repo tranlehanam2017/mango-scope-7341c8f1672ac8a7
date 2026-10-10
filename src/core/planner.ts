@@ -57,6 +57,7 @@ const WEIGHTS = {
   LARGE_TASK_PENALTY: 10, // Slight penalty for very large tasks to prevent them blocking the queue
   TIME_OF_DAY_BOOST: 8, // Bonus for matching preferred time of day
   QUICK_WIN_SATURATION_LIMIT: 3, // Max quick-wins per day before they are deprioritized in load suggestion
+  RECOVERY_MOMENTUM_BOOST: 30, // Bonus for small overdue items to help clear the queue
 };
 
 export function localDay(date = new Date()): string {
@@ -148,6 +149,11 @@ export function priorityFor(item: LifeRecord, today = localDay(), focusCategory?
       score -= decay;
       reasons.push(`stale decay (-${decay})`);
     }
+    
+    if (item.effort < 45) {
+      score += WEIGHTS.RECOVERY_MOMENTUM_BOOST;
+      reasons.push("recovery momentum");
+    }
   } else if (daysUntilDue === 0) {
     score += WEIGHTS.URGENCY_TODAY;
     reasons.push("urgent: due today");
@@ -207,7 +213,6 @@ export function priorityFor(item: LifeRecord, today = localDay(), focusCategory?
     score += WEIGHTS.SMALL_TASK_BOOST;
     reasons.push("deck-clearer boost");
   } else if (item.effort > 180) {
-    // Impact-weighted penalty: high impact tasks are penalized less for being large
     const impactMitigation = item.impact * 2;
     const adjustedPenalty = Math.max(0, WEIGHTS.LARGE_TASK_PENALTY - impactMitigation);
     score -= adjustedPenalty;
@@ -510,6 +515,7 @@ export function analyzeEisenhower(item: LifeRecord, today = localDay()): Eisenho
   if (isUrgent && isImportant) return "DO_FIRST";
   if (!isUrgent && isImportant) return "SCHEDULE";
   if (isUrgent && !isImportant) return "DELEGATE";
+  
   // High effort but not important is a prime candidate for elimination
   if (!isImportant && isHighEffort) return "ELIMINATE";
   
