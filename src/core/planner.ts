@@ -207,7 +207,10 @@ export function priorityFor(item: LifeRecord, today = localDay(), focusCategory?
     score += WEIGHTS.SMALL_TASK_BOOST;
     reasons.push("deck-clearer boost");
   } else if (item.effort > 180) {
-    score -= WEIGHTS.LARGE_TASK_PENALTY;
+    // Impact-weighted penalty: high impact tasks are penalized less for being large
+    const impactMitigation = item.impact * 2;
+    const adjustedPenalty = Math.max(0, WEIGHTS.LARGE_TASK_PENALTY - impactMitigation);
+    score -= adjustedPenalty;
     reasons.push("large task penalty");
   }
 
@@ -503,10 +506,13 @@ export function analyzeEisenhower(item: LifeRecord, today = localDay()): Eisenho
   const isUrgent = daysUntilDue <= 2;
   const isImportant = item.impact >= 4;
   const isHighEffort = item.effort > 180;
+  
   if (isUrgent && isImportant) return "DO_FIRST";
   if (!isUrgent && isImportant) return "SCHEDULE";
   if (isUrgent && !isImportant) return "DELEGATE";
+  // High effort but not important is a prime candidate for elimination
   if (!isImportant && isHighEffort) return "ELIMINATE";
+  
   return "ELIMINATE";
 }
 
