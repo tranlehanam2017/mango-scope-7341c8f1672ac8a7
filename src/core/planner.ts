@@ -40,6 +40,7 @@ const WEIGHTS = {
   CAPACITY_FIT_BONUS: 12, // Bonus for tasks that fit well in standard blocks
   DIMENSION_WEIGHT: 12, // Base weight for each additional impact dimension
   STABILITY_THRESHOLD: 0.5, // Minimum score diff to trigger a rank change
+  CRITICAL_STABILITY_THRESHOLD: 5.0, // Higher threshold to prevent flipping between critical tasks
   STALE_DECAY_START: 30, // Days after which overdue items start losing priority
   STALE_DECAY_RATE: 2,   // Penalty per day after STALE_DECAY_START
   POSTPONE_PENALTY: 8,   // Penalty per time the item was pushed forward
@@ -344,7 +345,11 @@ export function buildPlan(items: readonly LifeRecord[], today = localDay(), focu
     const aEff = a.item.impact / a.item.effort;
     const bEff = b.item.impact / b.item.effort;
     const isQuickWin = aEff > WEIGHTS.EFFICIENCY_THRESHOLD || bEff > WEIGHTS.EFFICIENCY_THRESHOLD;
-    const stability = isQuickWin ? WEIGHTS.STABILITY_THRESHOLD * 0.1 : WEIGHTS.STABILITY_THRESHOLD;
+    
+    // Determine stability threshold based on item criticality
+    const isCritical = a.item.impact >= 4 || b.item.impact >= 4;
+    let stability = isQuickWin ? WEIGHTS.STABILITY_THRESHOLD * 0.1 : WEIGHTS.STABILITY_THRESHOLD;
+    if (isCritical) stability = WEIGHTS.CRITICAL_STABILITY_THRESHOLD;
 
     if (Math.abs(diff) < stability) {
       const dateDiff = a.item.dueDate.localeCompare(b.item.dueDate);
