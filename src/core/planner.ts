@@ -463,6 +463,8 @@ export function suggestDailyLoad(items: readonly LifeRecord[], minutesPerDay: nu
         const aSaturated = a.quickWinCount >= WEIGHTS.QUICK_WIN_SATURATION_LIMIT ? 1 : 0;
         const bSaturated = b.quickWinCount >= WEIGHTS.QUICK_WIN_SATURATION_LIMIT ? 1 : 0;
         if (aSaturated !== bSaturated) return aSaturated - bSaturated;
+        // Prioritize days that already have quick-wins to create a 'loop'
+        if (a.quickWinCount !== b.quickWinCount) return b.quickWinCount - a.quickWinCount;
       }
       if (entry.item.effort >= 90) {
         const aDeep = a.entries.some(e => e.item.effort >= 90) ? 0 : 1;
@@ -523,6 +525,13 @@ export function forecastBurnDown(items: readonly LifeRecord[], minutesPerDay: nu
   const criticalityScore = pending.length ? Math.round((totalImpact / pending.length) * (stdDev / (meanEffort || 1)) * 10) : 0;
   const volatilityRatio = meanEffort ? stdDev / meanEffort : 0;
   const confidenceScore = Math.max(0, Math.min(100, Math.round(100 * (1 - volatilityRatio))));
+  
+  // Urgency-Impact Variance: Detects if high-impact items are pushed far into the future
+  const urgencyImpactVariance = pending.length ? pending.reduce((sum, i) => {
+    const urgency = Math.max(0, 7 - daysBetween(today, i.dueDate));
+    return sum + Math.abs(i.impact - urgency);
+  }, 0) / pending.length : 0;
+
   const trend = Array.from({ length: 30 }, (_, i) => {
     const date = new Date(Date.parse(`${today}T00:00:00Z`) + i * DAY_MS).toISOString().slice(0, 10);
     const remaining = Math.max(0, totalEffort - (i + 1) * capacity);
@@ -532,7 +541,7 @@ export function forecastBurnDown(items: readonly LifeRecord[], minutesPerDay: nu
     totalEffort, daysToComplete, completionDate, riskDays, riskCompletionDate, volatileDays, volatileCompletionDate,
     averageEffortPerItem: pending.length ? Math.round(totalEffort / pending.length) : 0,
     volatilityScore: pending.length ? Math.round((stdDev / meanEffort) * 100) : 0,
-    criticalityScore, confidenceScore, trend
+    criticalityScore, confidenceScore, trend, urgencyImpactVariance: Math.round(urgencyImpactVariance * 10) / 10
   };
 }
 
