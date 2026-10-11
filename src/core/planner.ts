@@ -60,6 +60,8 @@ const WEIGHTS = {
   TIME_OF_DAY_BOOST: 8, // Bonus for matching preferred time of day
   QUICK_WIN_SATURATION_LIMIT: 3, // Max quick-wins per day before they are deprioritized in load suggestion
   RECOVERY_MOMENTUM_BOOST: 30, // Bonus for small overdue items to help clear the queue
+  BURNOUT_THRESHOLD: 480, // Effort threshold for burnout penalty (8 hours)
+  BURNOUT_PENALTY_RATE: 0.1, // Penalty multiplier per minute over threshold
 };
 
 export function localDay(date = new Date()): string {
@@ -194,7 +196,7 @@ export function priorityFor(item: LifeRecord, today = localDay(), focusCategory?
   }
 
   const scaledEffort = item.effort > 60 ? 60 + Math.log2(item.effort - 59) * 10 : item.effort;
-  const valueDensity = (costOfDelay / scaledEffort) * WEIGHTS.WSJF_SCALING_FACTOR;
+  const valueDensity = (costOfDelay / (scaledEffort || 1)) * WEIGHTS.WSJF_SCALING_FACTOR;
   score += valueDensity;
   if (valueDensity > 12) reasons.push("high value density (WSJF)");
 
@@ -362,7 +364,6 @@ export function buildPlan(items: readonly LifeRecord[], today = localDay(), focu
     const bEff = b.item.impact / b.item.effort;
     const isQuickWin = aEff > WEIGHTS.EFFICIENCY_THRESHOLD || bEff > WEIGHTS.EFFICIENCY_THRESHOLD;
     
-    // Determine stability threshold based on item criticality
     const isCritical = a.item.impact >= 4 || b.item.impact >= 4;
     let stability = isQuickWin ? WEIGHTS.STABILITY_THRESHOLD * 0.1 : WEIGHTS.STABILITY_THRESHOLD;
     if (isCritical) stability = WEIGHTS.CRITICAL_STABILITY_THRESHOLD;
@@ -394,20 +395,16 @@ export function summarize(items: readonly LifeRecord[], today = localDay()): Pla
 export function calculateConcentrationScore(entries: PlanEntry[]): number {
   if (entries.length === 0) return 100;
   
-  // Calculate category dispersion
   const catCounts: Record<string, number> = {};
   for (const e of entries) {
     catCounts[e.item.category] = (catCounts[e.item.category] ?? 0) + 1;
   }
   const numCategories = Object.keys(catCounts).length;
   
-  // Calculate effort distribution (deep work vs fragments)
   const totalEffort = entries.reduce((sum, e) => sum + e.item.effort, 0);
   const largeTaskEffort = entries.filter(e => e.item.effort >= 90).reduce((sum, e) => sum + e.item.effort, 0);
   const deepWorkRatio = totalEffort > 0 ? largeTaskEffort / totalEffort : 0;
   
-  // Scoring logic: higher is more concentrated (better for deep work)
-  // Penalize high number of categories relative to task count
   const dispersionPenalty = (numCategories / entries.length) * 50;
   const concentration = (deepWorkRatio * 60) - dispersionPenalty + 40;
   
@@ -463,7 +460,6 @@ export function suggestDailyLoad(items: readonly LifeRecord[], minutesPerDay: nu
         const aSaturated = a.quickWinCount >= WEIGHTS.QUICK_WIN_SATURATION_LIMIT ? 1 : 0;
         const bSaturated = b.quickWinCount >= WEIGHTS.QUICK_WIN_SATURATION_LIMIT ? 1 : 0;
         if (aSaturated !== bSaturated) return aSaturated - bSaturated;
-        // Prioritize days that already have quick-wins to create a 'loop'
         if (a.quickWinCount !== b.quickWinCount) return b.quickWinCount - a.quickWinCount;
       }
       if (entry.item.effort >= 90) {
@@ -526,7 +522,6 @@ export function forecastBurnDown(items: readonly LifeRecord[], minutesPerDay: nu
   const volatilityRatio = meanEffort ? stdDev / meanEffort : 0;
   const confidenceScore = Math.max(0, Math.min(100, Math.round(100 * (1 - volatilityRatio))));
   
-  // Urgency-Impact Variance: Detects if high-impact items are pushed far into the future
   const urgencyImpactVariance = pending.length ? pending.reduce((sum, i) => {
     const urgency = Math.max(0, 7 - daysBetween(today, i.dueDate));
     return sum + Math.abs(i.impact - urgency);
@@ -575,10 +570,7 @@ export function analyzeEisenhower(item: LifeRecord, today = localDay()): Eisenho
   if (isUrgent && isImportant) return "DO_FIRST";
   if (!isUrgent && isImportant) return "SCHEDULE";
   if (isUrgent && !isImportant) return "DELEGATE";
-  
-  // High effort but not important is a prime candidate for elimination
   if (!isImportant && isHighEffort) return "ELIMINATE";
-  
   return "ELIMINATE";
 }
 
