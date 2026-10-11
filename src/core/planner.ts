@@ -36,6 +36,7 @@ const WEIGHTS = {
   DEPENDENCY_PENALTY: 100, // Significant penalty for blocked items
   BATCHING_BONUS: 5, // Bonus per other item of the same category due soon
   QUICK_WIN_BATCH_BONUS: 12, // Higher bonus when batching multiple quick-wins
+  DIMENSION_AFFINITY_BONUS: 8, // Bonus for tasks sharing specific impact dimensions
   BATCH_MOMENTUM_MULTIPLIER: 1.05, // Multiplier per additional item in a category batch
   CAPACITY_FIT_BONUS: 12, // Bonus for tasks that fit well in standard blocks
   DIMENSION_WEIGHT: 12, // Base weight for each additional impact dimension
@@ -295,6 +296,17 @@ export function priorityFor(item: LifeRecord, today = localDay(), focusCategory?
       const isBatchingQuickWins = isQuickWin && siblings.some(s => (s.impact / s.effort) > WEIGHTS.EFFICIENCY_THRESHOLD);
       const bonusPerItem = isBatchingQuickWins ? WEIGHTS.QUICK_WIN_BATCH_BONUS : WEIGHTS.BATCHING_BONUS;
       score += siblings.length * bonusPerItem;
+      
+      if (item.impactDimensions) {
+        const sharedDims = siblings.filter(s => 
+          s.impactDimensions && Object.keys(s.impactDimensions).some(k => item.impactDimensions![k])
+        ).length;
+        if (sharedDims > 0) {
+          score += sharedDims * WEIGHTS.DIMENSION_AFFINITY_BONUS;
+          reasons.push(`dimension affinity: ${sharedDims} tasks`);
+        }
+      }
+
       score *= Math.pow(WEIGHTS.BATCH_MOMENTUM_MULTIPLIER, siblings.length);
       reasons.push(`batching: ${siblings.length} similar tasks${isBatchingQuickWins ? ' (quick-win loop)' : ''}`);
       if (siblings.length >= 3) reasons.push("batch momentum");
@@ -325,7 +337,11 @@ export function priorityFor(item: LifeRecord, today = localDay(), focusCategory?
     reasons.push(`preferred time: ${item.preferredTime}`);
   }
 
-  if (item.status === "done" || item.status === "archived") score = -1;
+  if (item.status === "done") score = -1;
+  if (item.status === "archived") {
+    score = -100; // Stable floor for archived items
+    reasons.push("archived record");
+  }
   if (item.status === "stale") {
     score -= 100;
     reasons.push("marked as stale");
