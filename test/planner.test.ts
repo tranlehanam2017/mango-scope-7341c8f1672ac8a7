@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { importJson } from "../src/core/exchange";
-import { buildPlan, daysBetween, priorityFor, suggestDailyLoad, summarize, forecastBurnDown, forecastBurnUp, analyzeEisenhower } from "../src/core/planner";
+import { buildPlan, daysBetween, priorityFor, suggestDailyLoad, summarize, forecastBurnDown, forecastBurnUp, analyzeEisenhower, calculateConcentrationScore } from "../src/core/planner";
 import { theme } from "../src/theme";
 import type { LifeRecord } from "../src/types";
 
@@ -272,6 +272,33 @@ describe("planning engine", () => {
     });
     it("categorizes Not Urgent & Not Important as ELIMINATE", () => {
       expect(analyzeEisenhower(item({ dueDate: "2026-08-25", impact: 2 }), today)).toBe("ELIMINATE");
+    });
+  });
+
+  describe("Concentration Scoring", () => {
+    it("gives high score to a single deep-work task", () => {
+      const entries = [priorityFor(item({ effort: 180 }), "2026-08-20"]);
+      expect(calculateConcentrationScore(entries)).toBeGreaterThan(70);
+    });
+    it("gives low score to many small tasks from different categories", () => {
+      const entries = [
+        priorityFor(item({ id: "1", category: "A", effort: 15 }), "2026-08-20"),
+        priorityFor(item({ id: "2", category: "B", effort: 15 }), "2026-08-20"),
+        priorityFor(item({ id: "3", category: "C", effort: 15 }), "2026-08-20"),
+        priorityFor(item({ id: "4", category: "D", effort: 15 }), "2026-08-20"),
+      ];
+      expect(calculateConcentrationScore(entries)).toBeLessThan(50);
+    });
+    it("scores higher for same-category batching than mixed-category batching", () => {
+      const mixed = [
+        priorityFor(item({ id: "1", category: "A", effort: 30 }), "2026-08-20"),
+        priorityFor(item({ id: "2", category: "B", effort: 30 }), "2026-08-20"),
+      ];
+      const batched = [
+        priorityFor(item({ id: "1", category: "A", effort: 30 }), "2026-08-20"),
+        priorityFor(item({ id: "2", category: "A", effort: 30 }), "2026-08-20"),
+      ];
+      expect(calculateConcentrationScore(batched)).toBeGreaterThan(calculateConcentrationScore(mixed));
     });
   });
 });

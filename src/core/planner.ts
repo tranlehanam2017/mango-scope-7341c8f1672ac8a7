@@ -391,6 +391,29 @@ export function summarize(items: readonly LifeRecord[], today = localDay()): Pla
   }, { total: 0, completed: 0, overdue: 0, dueSoon: 0, effort: 0, byCategory: {} });
 }
 
+export function calculateConcentrationScore(entries: PlanEntry[]): number {
+  if (entries.length === 0) return 100;
+  
+  // Calculate category dispersion
+  const catCounts: Record<string, number> = {};
+  for (const e of entries) {
+    catCounts[e.item.category] = (catCounts[e.item.category] ?? 0) + 1;
+  }
+  const numCategories = Object.keys(catCounts).length;
+  
+  // Calculate effort distribution (deep work vs fragments)
+  const totalEffort = entries.reduce((sum, e) => sum + e.item.effort, 0);
+  const largeTaskEffort = entries.filter(e => e.item.effort >= 90).reduce((sum, e) => sum + e.item.effort, 0);
+  const deepWorkRatio = totalEffort > 0 ? largeTaskEffort / totalEffort : 0;
+  
+  // Scoring logic: higher is more concentrated (better for deep work)
+  // Penalize high number of categories relative to task count
+  const dispersionPenalty = (numCategories / entries.length) * 50;
+  const concentration = (deepWorkRatio * 60) - dispersionPenalty + 40;
+  
+  return Math.max(0, Math.min(100, Math.round(concentration)));
+}
+
 export function suggestDailyLoad(items: readonly LifeRecord[], minutesPerDay: number, today = localDay(), saturate = false, focusCategory?: string, theme?: ThemeConfig) {
   const softCapacity = Math.max(1, minutesPerDay);
   const hardCapacity = softCapacity * 1.3;
@@ -476,7 +499,8 @@ export function suggestDailyLoad(items: readonly LifeRecord[], minutesPerDay: nu
   return days.map((day) => ({
     ...day,
     overloaded: day.used > softCapacity,
-    criticalOverload: day.used > hardCapacity
+    criticalOverload: day.used > hardCapacity,
+    concentrationScore: calculateConcentrationScore(day.entries)
   }));
 }
 
