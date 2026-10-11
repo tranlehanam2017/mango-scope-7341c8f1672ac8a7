@@ -48,6 +48,7 @@ const WEIGHTS = {
   POSTPONE_THRESHOLD: 3,  // When churn penalty starts applying
   RISK_EFFORT_THRESHOLD: 120, // Effort above which an overdue task is considered 'at risk' of avoidance
   RISK_BOOST: 25, // Extra boost to surface high-effort overdue tasks
+  AVOIDANCE_RISK_MULTIPLIER: 0.15, // Weight for effort-based avoidance risk on overdue items
   SUBTASK_BOOST: 15, // Boost for sub-tasks whose parents are critical
   WSJF_SCALING_FACTOR: 25, // Scaling factor for the value density (Cost of Delay / Duration)
   COMPLEXITY_MULTIPLIER: 1.1, // Small boost for nuanced/complex tasks to prevent them being buried
@@ -164,6 +165,10 @@ export function priorityFor(item: LifeRecord, today = localDay(), focusCategory?
       score += WEIGHTS.RECOVERY_MOMENTUM_BOOST;
       reasons.push("recovery momentum");
     }
+
+    const avoidanceRisk = item.effort * WEIGHTS.AVOIDANCE_RISK_MULTIPLIER;
+    score += avoidanceRisk;
+    if (avoidanceRisk > 15) reasons.push("avoidance risk boost");
   } else if (daysUntilDue === 0) {
     score += WEIGHTS.URGENCY_TODAY;
     reasons.push("urgent: due today");
@@ -405,8 +410,11 @@ export function calculateConcentrationScore(entries: PlanEntry[]): number {
   const largeTaskEffort = entries.filter(e => e.item.effort >= 90).reduce((sum, e) => sum + e.item.effort, 0);
   const deepWorkRatio = totalEffort > 0 ? largeTaskEffort / totalEffort : 0;
   
+  const maxCatCount = entries.length ? Math.max(...Object.values(catCounts)) : 0;
+  const thematicFocusBonus = (maxCatCount / entries.length) * 20;
+
   const dispersionPenalty = (numCategories / entries.length) * 50;
-  const concentration = (deepWorkRatio * 60) - dispersionPenalty + 40;
+  const concentration = (deepWorkRatio * 60) - dispersionPenalty + thematicFocusBonus + 40;
   
   return Math.max(0, Math.min(100, Math.round(concentration)));
 }
@@ -460,7 +468,7 @@ export function suggestDailyLoad(items: readonly LifeRecord[], minutesPerDay: nu
         const aSaturated = a.quickWinCount >= WEIGHTS.QUICK_WIN_SATURATION_LIMIT ? 1 : 0;
         const bSaturated = b.quickWinCount >= WEIGHTS.QUICK_WIN_SATURATION_LIMIT ? 1 : 0;
         if (aSaturated !== bSaturated) return aSaturated - bSaturated;
-        if (a.quickWinCount !== b.quickWinCount) return b.quickWinCount - a.quickWinCount;
+        if (a.quickWinCount !== b.quickWinCount) return a.quickWinCount - b.quickWinCount;
       }
       if (entry.item.effort >= 90) {
         const aDeep = a.entries.some(e => e.item.effort >= 90) ? 0 : 1;
