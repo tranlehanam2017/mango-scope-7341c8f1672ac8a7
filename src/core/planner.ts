@@ -63,6 +63,7 @@ const WEIGHTS = {
   RECOVERY_MOMENTUM_BOOST: 30, // Bonus for small overdue items to help clear the queue
   BURNOUT_THRESHOLD: 480, // Effort threshold for burnout penalty (8 hours)
   BURNOUT_PENALTY_RATE: 0.1, // Penalty multiplier per minute over threshold
+  STRATEGIC_ALIGNMENT_BOOST: 15, // Bonus for tasks bridging multiple impact dimensions
 };
 
 export function localDay(date = new Date()): string {
@@ -122,6 +123,10 @@ export function priorityFor(item: LifeRecord, today = localDay(), focusCategory?
       const dimBoost = (dimSum * WEIGHTS.DIMENSION_WEIGHT) / (dimCount || 1);
       score += dimBoost;
       reasons.push("multi-dimensional value");
+    }
+    if (dimCount >= 3) {
+      score += WEIGHTS.STRATEGIC_ALIGNMENT_BOOST;
+      reasons.push("strategic alignment");
     }
   }
   
@@ -407,14 +412,20 @@ export function calculateConcentrationScore(entries: PlanEntry[]): number {
   const numCategories = Object.keys(catCounts).length;
   
   const totalEffort = entries.reduce((sum, e) => sum + e.item.effort, 0);
-  const largeTaskEffort = entries.filter(e => e.item.effort >= 90).reduce((sum, e) => sum + e.item.effort, 0);
+  const deepWorkEntries = entries.filter(e => e.item.effort >= 90);
+  const largeTaskEffort = deepWorkEntries.reduce((sum, e) => sum + e.item.effort, 0);
   const deepWorkRatio = totalEffort > 0 ? largeTaskEffort / totalEffort : 0;
   
   const maxCatCount = entries.length ? Math.max(...Object.values(catCounts)) : 0;
   const thematicFocusBonus = (maxCatCount / entries.length) * 20;
 
   const dispersionPenalty = (numCategories / entries.length) * 50;
-  const concentration = (deepWorkRatio * 60) - dispersionPenalty + thematicFocusBonus + 40;
+  
+  // High impact deep work should be rewarded more
+  const highImpactDeepWork = deepWorkEntries.filter(e => e.item.impact >= 4).length;
+  const deepWorkQualityBoost = (highImpactDeepWork / (entries.length || 1)) * 30;
+
+  const concentration = (deepWorkRatio * 60) - dispersionPenalty + thematicFocusBonus + deepWorkQualityBoost + 40;
   
   return Math.max(0, Math.min(100, Math.round(concentration)));
 }
