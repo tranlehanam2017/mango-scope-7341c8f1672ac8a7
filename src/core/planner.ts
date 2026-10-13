@@ -477,6 +477,11 @@ export function suggestDailyLoad(items: readonly LifeRecord[], minutesPerDay: nu
         return days.indexOf(a) - days.indexOf(b);
       }
       
+      // Thematic Cohesion: Prioritize days that already contain the same category to minimize context switching
+      const aHasCategory = a.entries.some(e => e.item.category === entry.item.category) ? 0 : 1;
+      const bHasCategory = b.entries.some(e => e.item.category === entry.item.category) ? 0 : 1;
+      if (aHasCategory !== bHasCategory) return aHasCategory - bHasCategory;
+
       // Prioritize Deep Work slots: Try to fit one large task per day first to avoid fragmented schedules
       if (entry.item.effort >= 90) {
         const aHasDeep = a.hasDeepWorkBlock ? 0 : 1;
