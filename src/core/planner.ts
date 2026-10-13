@@ -444,6 +444,7 @@ export function suggestDailyLoad(items: readonly LifeRecord[], minutesPerDay: nu
     timeDistribution: { morning: 0, afternoon: 0, evening: 0 },
     entries: [] as PlanEntry[],
     quickWinCount: 0,
+    hasDeepWorkBlock: false,
   }));
 
   const plan = buildPlan(items, today, focusCategory, theme);
@@ -475,6 +476,14 @@ export function suggestDailyLoad(items: readonly LifeRecord[], minutesPerDay: nu
       if (focusCategory && entry.item.category === focusCategory) {
         return days.indexOf(a) - days.indexOf(b);
       }
+      
+      // Prioritize Deep Work slots: Try to fit one large task per day first to avoid fragmented schedules
+      if (entry.item.effort >= 90) {
+        const aHasDeep = a.hasDeepWorkBlock ? 0 : 1;
+        const bHasDeep = b.hasDeepWorkBlock ? 0 : 1;
+        if (aHasDeep !== bHasDeep) return aHasDeep - bHasDeep;
+      }
+
       if (isQuickWin) {
         const aSaturated = a.quickWinCount >= WEIGHTS.QUICK_WIN_SATURATION_LIMIT ? 1 : 0;
         const bSaturated = b.quickWinCount >= WEIGHTS.QUICK_WIN_SATURATION_LIMIT ? 1 : 0;
@@ -506,6 +515,7 @@ export function suggestDailyLoad(items: readonly LifeRecord[], minutesPerDay: nu
     target.used += entry.item.effort;
     target.energyConsumed += energyCost;
     if (isQuickWin) target.quickWinCount++;
+    if (entry.item.effort >= 90) target.hasDeepWorkBlock = true;
     if (entry.item.preferredEnergy) {
       target.energyDistribution[entry.item.preferredEnergy] += entry.item.effort;
     }
