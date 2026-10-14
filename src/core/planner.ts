@@ -64,6 +64,8 @@ const WEIGHTS = {
   BURNOUT_THRESHOLD: 480, // Effort threshold for burnout penalty (8 hours)
   BURNOUT_PENALTY_RATE: 0.1, // Penalty multiplier per minute over threshold
   STRATEGIC_ALIGNMENT_BOOST: 15, // Bonus for tasks bridging multiple impact dimensions
+  LONG_TERM_GOAL_BOOST: 12, // Boost for high-impact items due far in the future to prevent burial
+  SPRINT_ACCELERATION_BOOST: 45, // Significant boost for items in a focused sprint
 };
 
 export function localDay(date = new Date()): string {
@@ -198,6 +200,12 @@ export function priorityFor(item: LifeRecord, today = localDay(), focusCategory?
     const decay = Math.min(WEIGHTS.DISTANT_DECAY_MAX, Math.floor(daysUntilDue / 10));
     score -= decay;
     if (decay > 0) reasons.push("scheduled for future");
+    
+    // Elevation: High-impact long-term goals receive a boost to ensure they are not permanently deferred
+    if (item.impact >= 4) {
+      score += WEIGHTS.LONG_TERM_GOAL_BOOST;
+      reasons.push("long-term goal elevation");
+    }
   }
 
   if (item.impact >= 4 && daysUntilDue >= 0 && daysUntilDue <= 1) {
@@ -277,6 +285,13 @@ export function priorityFor(item: LifeRecord, today = localDay(), focusCategory?
     } else if (item.category === focusCategory) {
       score += WEIGHTS.FOCUS_BOOST;
       reasons.push(`focus: ${focusCategory}`);
+      
+      // If the item is high impact, amplify the focus boost to create a "Sprint" effect
+      if (item.impact >= 4) {
+        score += WEIGHTS.SPRINT_ACCELERATION_BOOST;
+        reasons.push("focus sprint acceleration");
+      }
+      
       score *= WEIGHTS.FOCUS_INTENSITY_MULTIPLIER;
       reasons.push("focus intensity");
     }
