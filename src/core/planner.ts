@@ -201,7 +201,6 @@ export function priorityFor(item: LifeRecord, today = localDay(), focusCategory?
     score -= decay;
     if (decay > 0) reasons.push("scheduled for future");
     
-    // Elevation: High-impact long-term goals receive a boost to ensure they are not permanently deferred
     if (item.impact >= 4) {
       score += WEIGHTS.LONG_TERM_GOAL_BOOST;
       reasons.push("long-term goal elevation");
@@ -285,13 +284,10 @@ export function priorityFor(item: LifeRecord, today = localDay(), focusCategory?
     } else if (item.category === focusCategory) {
       score += WEIGHTS.FOCUS_BOOST;
       reasons.push(`focus: ${focusCategory}`);
-      
-      // If the item is high impact, amplify the focus boost to create a "Sprint" effect
       if (item.impact >= 4) {
         score += WEIGHTS.SPRINT_ACCELERATION_BOOST;
         reasons.push("focus sprint acceleration");
       }
-      
       score *= WEIGHTS.FOCUS_INTENSITY_MULTIPLIER;
       reasons.push("focus intensity");
     }
@@ -323,7 +319,6 @@ export function priorityFor(item: LifeRecord, today = localDay(), focusCategory?
       const isBatchingQuickWins = isQuickWin && siblings.some(s => (s.impact / s.effort) > WEIGHTS.EFFICIENCY_THRESHOLD);
       const bonusPerItem = isBatchingQuickWins ? WEIGHTS.QUICK_WIN_BATCH_BONUS : WEIGHTS.BATCHING_BONUS;
       score += siblings.length * bonusPerItem;
-      
       if (item.impactDimensions) {
         const sharedDims = siblings.filter(s => 
           s.impactDimensions && Object.keys(s.impactDimensions).some(k => item.impactDimensions![k])
@@ -333,7 +328,6 @@ export function priorityFor(item: LifeRecord, today = localDay(), focusCategory?
           reasons.push(`dimension affinity: ${sharedDims} tasks`);
         }
       }
-
       score *= Math.pow(WEIGHTS.BATCH_MOMENTUM_MULTIPLIER, siblings.length);
       reasons.push(`batching: ${siblings.length} similar tasks${isBatchingQuickWins ? ' (quick-win loop)' : ''}`);
       if (siblings.length >= 3) reasons.push("batch momentum");
@@ -366,7 +360,7 @@ export function priorityFor(item: LifeRecord, today = localDay(), focusCategory?
 
   if (item.status === "done") score = -1;
   if (item.status === "archived") {
-    score = -100; // Stable floor for archived items
+    score = -100;
     reasons.push("archived record");
   }
   if (item.status === "stale") {
@@ -388,7 +382,6 @@ export function buildPlan(items: readonly LifeRecord[], today = localDay(), focu
     const aEff = a.item.impact / a.item.effort;
     const bEff = b.item.impact / b.item.effort;
     const isQuickWin = aEff > WEIGHTS.EFFICIENCY_THRESHOLD || bEff > WEIGHTS.EFFICIENCY_THRESHOLD;
-    
     const isCritical = a.item.impact >= 4 || b.item.impact >= 4;
     let stability = isQuickWin ? WEIGHTS.STABILITY_THRESHOLD * 0.1 : WEIGHTS.STABILITY_THRESHOLD;
     if (isCritical) stability = WEIGHTS.CRITICAL_STABILITY_THRESHOLD;
@@ -419,29 +412,21 @@ export function summarize(items: readonly LifeRecord[], today = localDay()): Pla
 
 export function calculateConcentrationScore(entries: PlanEntry[]): number {
   if (entries.length === 0) return 100;
-  
   const catCounts: Record<string, number> = {};
   for (const e of entries) {
     catCounts[e.item.category] = (catCounts[e.item.category] ?? 0) + 1;
   }
   const numCategories = Object.keys(catCounts).length;
-  
   const totalEffort = entries.reduce((sum, e) => sum + e.item.effort, 0);
   const deepWorkEntries = entries.filter(e => e.item.effort >= 90);
   const largeTaskEffort = deepWorkEntries.reduce((sum, e) => sum + e.item.effort, 0);
   const deepWorkRatio = totalEffort > 0 ? largeTaskEffort / totalEffort : 0;
-  
   const maxCatCount = entries.length ? Math.max(...Object.values(catCounts)) : 0;
   const thematicFocusBonus = (maxCatCount / entries.length) * 20;
-
   const dispersionPenalty = (numCategories / entries.length) * 50;
-  
-  // High impact deep work should be rewarded more
   const highImpactDeepWork = deepWorkEntries.filter(e => e.item.impact >= 4).length;
   const deepWorkQualityBoost = (highImpactDeepWork / (entries.length || 1)) * 30;
-
   const concentration = (deepWorkRatio * 60) - dispersionPenalty + thematicFocusBonus + deepWorkQualityBoost + 40;
-  
   return Math.max(0, Math.min(100, Math.round(concentration)));
 }
 
@@ -449,13 +434,11 @@ export function suggestDailyLoad(items: readonly LifeRecord[], minutesPerDay: nu
   const softCapacity = Math.max(1, minutesPerDay);
   const hardCapacity = softCapacity * 1.3;
   const baseEnergyBudget = Math.max(5, Math.ceil(softCapacity / 30));
-  
-  // Calculate volatility (std dev of effort) to determine a risk buffer
   const pending = items.filter(i => i.status !== "done" && i.status !== "archived");
   const meanEffort = pending.length ? pending.reduce((s, i) => s + i.effort, 0) / pending.length : 0;
   const variance = pending.length ? pending.reduce((s, i) => s + Math.pow(i.effort - meanEffort, 2), 0) / pending.length : 0;
   const stdDev = Math.sqrt(variance);
-  const riskBuffer = Math.min(60, stdDev * 0.5); // Buffer up to 1 hour based on volatility
+  const riskBuffer = Math.min(60, stdDev * 0.5);
 
   const days = Array.from({ length: 7 }, (_, offset) => ({
     date: new Date(Date.parse(`${today}T00:00:00Z`) + offset * DAY_MS).toISOString().slice(0, 10),
@@ -498,19 +481,14 @@ export function suggestDailyLoad(items: readonly LifeRecord[], minutesPerDay: nu
       if (focusCategory && entry.item.category === focusCategory) {
         return days.indexOf(a) - days.indexOf(b);
       }
-      
-      // Thematic Cohesion: Prioritize days that already contain the same category to minimize context switching
       const aHasCategory = a.entries.some(e => e.item.category === entry.item.category) ? 0 : 1;
       const bHasCategory = b.entries.some(e => e.item.category === entry.item.category) ? 0 : 1;
       if (aHasCategory !== bHasCategory) return aHasCategory - bHasCategory;
-
-      // Prioritize Deep Work slots: Try to fit one large task per day first to avoid fragmented schedules
       if (entry.item.effort >= 90) {
         const aHasDeep = a.hasDeepWorkBlock ? 0 : 1;
         const bHasDeep = b.hasDeepWorkBlock ? 0 : 1;
         if (aHasDeep !== bHasDeep) return aHasDeep - bHasDeep;
       }
-
       if (isQuickWin) {
         const aSaturated = a.quickWinCount >= WEIGHTS.QUICK_WIN_SATURATION_LIMIT ? 1 : 0;
         const bSaturated = b.quickWinCount >= WEIGHTS.QUICK_WIN_SATURATION_LIMIT ? 1 : 0;
@@ -527,21 +505,16 @@ export function suggestDailyLoad(items: readonly LifeRecord[], minutesPerDay: nu
         const bMax = b.entries.length ? Math.max(...b.entries.map(e => e.item.effort)) : 0;
         if (aMax !== bMax) return aMax - bMax;
       }
-      
-      // Energy alignment: Prefer days that have remaining budget for the specific energy level of the task
       if (entry.item.preferredEnergy) {
         const aEnergyFit = a.energyDistribution[entry.item.preferredEnergy] < (softCapacity * 0.3) ? 0 : 1;
         const bEnergyFit = b.energyDistribution[entry.item.preferredEnergy] < (softCapacity * 0.3) ? 0 : 1;
         if (aEnergyFit !== bEnergyFit) return aEnergyFit - bEnergyFit;
       }
-
-      // Time alignment: Prefer days that don't already have too much assigned to that time of day
       if (entry.item.preferredTime) {
         const aTimeFit = a.timeDistribution[entry.item.preferredTime] < (softCapacity * 0.4) ? 0 : 1;
         const bTimeFit = b.timeDistribution[entry.item.preferredTime] < (softCapacity * 0.4) ? 0 : 1;
         if (aTimeFit !== bTimeFit) return aTimeFit - bTimeFit;
       }
-
       const aUnder = a.used < softCapacity ? 0 : 1;
       const bUnder = b.used < softCapacity ? 0 : 1;
       if (aUnder !== bUnder) return aUnder - bUnder;
@@ -587,12 +560,10 @@ export function forecastBurnDown(items: readonly LifeRecord[], minutesPerDay: nu
   const criticalityScore = pending.length ? Math.round((totalImpact / pending.length) * (stdDev / (meanEffort || 1)) * 10) : 0;
   const volatilityRatio = meanEffort ? stdDev / meanEffort : 0;
   const confidenceScore = Math.max(0, Math.min(100, Math.round(100 * (1 - volatilityRatio))));
-  
   const urgencyImpactVariance = pending.length ? pending.reduce((sum, i) => {
     const urgency = Math.max(0, 7 - daysBetween(today, i.dueDate));
     return sum + Math.abs(i.impact - urgency);
   }, 0) / pending.length : 0;
-
   const trend = Array.from({ length: 30 }, (_, i) => {
     const date = new Date(Date.parse(`${today}T00:00:00Z`) + i * DAY_MS).toISOString().slice(0, 10);
     const remaining = Math.max(0, totalEffort - (i + 1) * capacity);
@@ -632,7 +603,6 @@ export function analyzeEisenhower(item: LifeRecord, today = localDay()): Eisenho
   const isUrgent = daysUntilDue <= 2;
   const isImportant = item.impact >= 4;
   const isHighEffort = item.effort > 180;
-  
   if (isUrgent && isImportant) return "DO_FIRST";
   if (!isUrgent && isImportant) return "SCHEDULE";
   if (isUrgent && !isImportant) return "DELEGATE";
