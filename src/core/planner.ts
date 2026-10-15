@@ -602,11 +602,13 @@ export function analyzeEisenhower(item: LifeRecord, today = localDay()): Eisenho
   const daysUntilDue = daysBetween(today, item.dueDate);
   const isUrgent = daysUntilDue <= 2;
   const isImportant = item.impact >= 4;
-  const isHighEffort = item.effort > 180;
+  const isHighEffort = item.effort > WEIGHTS.RISK_EFFORT_THRESHOLD;
+
   if (isUrgent && isImportant) return "DO_FIRST";
   if (!isUrgent && isImportant) return "SCHEDULE";
   if (isUrgent && !isImportant) return "DELEGATE";
   if (!isImportant && isHighEffort) return "ELIMINATE";
+  if (!isImportant && !isUrgent) return "ELIMINATE";
   return "ELIMINATE";
 }
 
