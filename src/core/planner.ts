@@ -450,6 +450,13 @@ export function suggestDailyLoad(items: readonly LifeRecord[], minutesPerDay: nu
   const hardCapacity = softCapacity * 1.3;
   const baseEnergyBudget = Math.max(5, Math.ceil(softCapacity / 30));
   
+  // Calculate volatility (std dev of effort) to determine a risk buffer
+  const pending = items.filter(i => i.status !== "done" && i.status !== "archived");
+  const meanEffort = pending.length ? pending.reduce((s, i) => s + i.effort, 0) / pending.length : 0;
+  const variance = pending.length ? pending.reduce((s, i) => s + Math.pow(i.effort - meanEffort, 2), 0) / pending.length : 0;
+  const stdDev = Math.sqrt(variance);
+  const riskBuffer = Math.min(60, stdDev * 0.5); // Buffer up to 1 hour based on volatility
+
   const days = Array.from({ length: 7 }, (_, offset) => ({
     date: new Date(Date.parse(`${today}T00:00:00Z`) + offset * DAY_MS).toISOString().slice(0, 10),
     used: 0,
@@ -476,12 +483,12 @@ export function suggestDailyLoad(items: readonly LifeRecord[], minutesPerDay: nu
 
     const candidates = saturate 
       ? days.filter((d, idx) => 
-          d.used + entry.item.effort <= getEffectiveCapacity(idx) && 
+          d.used + entry.item.effort <= getEffectiveCapacity(idx) - riskBuffer && 
           d.energyConsumed + energyCost <= d.energyBudget
         )
       : days.filter((day, index) => 
           index <= Math.max(0, Math.min(6, entry.daysUntilDue)) && 
-          day.used + entry.item.effort <= getEffectiveCapacity(index) &&
+          day.used + entry.item.effort <= getEffectiveCapacity(index) - riskBuffer &&
           day.energyConsumed + energyCost <= day.energyBudget
         );
 
