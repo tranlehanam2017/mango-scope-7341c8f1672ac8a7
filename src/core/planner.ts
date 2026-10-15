@@ -527,11 +527,21 @@ export function suggestDailyLoad(items: readonly LifeRecord[], minutesPerDay: nu
         const bMax = b.entries.length ? Math.max(...b.entries.map(e => e.item.effort)) : 0;
         if (aMax !== bMax) return aMax - bMax;
       }
+      
+      // Energy alignment: Prefer days that have remaining budget for the specific energy level of the task
       if (entry.item.preferredEnergy) {
-        const aEnergy = a.energyDistribution[entry.item.preferredEnergy];
-        const bEnergy = b.energyDistribution[entry.item.preferredEnergy];
-        if (aEnergy !== bEnergy) return aEnergy - bEnergy;
+        const aEnergyFit = a.energyDistribution[entry.item.preferredEnergy] < (softCapacity * 0.3) ? 0 : 1;
+        const bEnergyFit = b.energyDistribution[entry.item.preferredEnergy] < (softCapacity * 0.3) ? 0 : 1;
+        if (aEnergyFit !== bEnergyFit) return aEnergyFit - bEnergyFit;
       }
+
+      // Time alignment: Prefer days that don't already have too much assigned to that time of day
+      if (entry.item.preferredTime) {
+        const aTimeFit = a.timeDistribution[entry.item.preferredTime] < (softCapacity * 0.4) ? 0 : 1;
+        const bTimeFit = b.timeDistribution[entry.item.preferredTime] < (softCapacity * 0.4) ? 0 : 1;
+        if (aTimeFit !== bTimeFit) return aTimeFit - bTimeFit;
+      }
+
       const aUnder = a.used < softCapacity ? 0 : 1;
       const bUnder = b.used < softCapacity ? 0 : 1;
       if (aUnder !== bUnder) return aUnder - bUnder;
