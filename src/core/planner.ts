@@ -70,6 +70,8 @@ const WEIGHTS = {
   COGNITIVE_LOAD_THRESHOLD: 180, // Effort above which complexity starts penalizing more
   COGNITIVE_LOAD_PENALTY_FACTOR: 3, // Penalty per complexity dimension for high-effort tasks
   ENERGY_EFFICIENCY_BOOST: 15, // Bonus for high-impact tasks matching preferred energy
+  VELOCITY_BOOST_MAX: 12, // Bonus for tasks updated frequently relative to their duration
+  COMPLEXITY_FATIGUE_PENALTY: 15, // Penalty for high-effort tasks with many dimensions
 };
 
 export function localDay(date = new Date()): string {
@@ -276,6 +278,17 @@ export function priorityFor(item: LifeRecord, today = localDay(), focusCategory?
       score += WEIGHTS.MOMENTUM_BOOST_MAX * decayFactor;
       reasons.push("recent momentum");
     }
+
+    const totalDurationHours = item.effort / 60;
+    if (totalDurationHours > 0) {
+      const updateFrequency = 1 / (diffHours || 1);
+      const velocityScore = (updateFrequency * totalDurationHours * 5);
+      const boost = Math.min(WEIGHTS.VELOCITY_BOOST_MAX, velocityScore);
+      if (boost > 2) {
+        score += boost;
+        reasons.push("work velocity boost");
+      }
+    }
   }
 
   if (item.impact >= 5) {
@@ -390,6 +403,11 @@ export function priorityFor(item: LifeRecord, today = localDay(), focusCategory?
     }
   }
 
+  if (item.effort > 240 && item.impactDimensions && Object.keys(item.impactDimensions).length >= 3) {
+    score -= WEIGHTS.COMPLEXITY_FATIGUE_PENALTY;
+    reasons.push("complexity fatigue penalty");
+  }
+
   if (reasons.length === 0) reasons.push("ranked by impact and effort");
 
   return { item, score: Math.round(score * 10) / 10, reasons, daysUntilDue };
@@ -447,7 +465,6 @@ export function calculateConcentrationScore(entries: PlanEntry[]): number {
   const maxCatCount = entries.length ? Math.max(...Object.values(catCounts)) : 0;
   const thematicFocusBonus = (maxCatCount / entries.length) * 20;
   
-  // Refine dispersion penalty: allow a few small tasks without heavy penalty
   const effectiveCategories = numCategories > 3 ? numCategories - 2 : numCategories;
   const dispersionPenalty = (effectiveCategories / entries.length) * 40;
   
