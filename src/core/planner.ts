@@ -61,6 +61,7 @@ const WEIGHTS = {
   TIME_OF_DAY_BOOST: 8, // Bonus for matching preferred time of day
   QUICK_WIN_SATURATION_LIMIT: 3, // Max quick-wins per day before they are deprioritized in load suggestion
   RECOVERY_MOMENTUM_BOOST: 30, // Bonus for small overdue items to help clear the queue
+  STALLED_RECOVERY_BOOST: 20, // Boost for items that were 'active' but became overdue
   BURNOUT_THRESHOLD: 480, // Effort threshold for burnout penalty (8 hours)
   BURNOUT_PENALTY_RATE: 0.1, // Penalty multiplier per minute over threshold
   STRATEGIC_ALIGNMENT_BOOST: 15, // Bonus for tasks bridging multiple impact dimensions
@@ -156,6 +157,9 @@ export function priorityFor(item: LifeRecord, today = localDay(), focusCategory?
     if (item.status === "planned") {
       score -= WEIGHTS.OVERDUE_INACTIVE_PENALTY;
       reasons.push("inactive overdue penalty");
+    } else if (item.status === "active") {
+      score += WEIGHTS.STALLED_RECOVERY_BOOST;
+      reasons.push("stalled active recovery");
     }
     if (item.impact >= 4) {
       score *= WEIGHTS.AT_RISK_MULTIPLIER;
