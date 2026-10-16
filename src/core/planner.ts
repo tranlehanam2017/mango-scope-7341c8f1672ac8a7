@@ -72,6 +72,8 @@ const WEIGHTS = {
   ENERGY_EFFICIENCY_BOOST: 15, // Bonus for high-impact tasks matching preferred energy
   VELOCITY_BOOST_MAX: 12, // Bonus for tasks updated frequently relative to their duration
   COMPLEXITY_FATIGUE_PENALTY: 15, // Penalty for high-effort tasks with many dimensions
+  FRAGMENTATION_PENALTY: 15, // Penalty for mixing too many categories on a deep-work day
+  DEEP_WORK_PROTECTION_THRESHOLD: 120, // Effort threshold that triggers focus protection
 };
 
 export function localDay(date = new Date()): string {
@@ -528,6 +530,14 @@ export function suggestDailyLoad(items: readonly LifeRecord[], minutesPerDay: nu
       const aHasCategory = a.entries.some(e => e.item.category === entry.item.category) ? 0 : 1;
       const bHasCategory = b.entries.some(e => e.item.category === entry.item.category) ? 0 : 1;
       if (aHasCategory !== bHasCategory) return aHasCategory - bHasCategory;
+      
+      // Deep Work Protection: If a day already has a significant block, protect it from quick-win fragmentation
+      if (entry.item.effort < 45 && (a.hasDeepWorkBlock || b.hasDeepWorkBlock)) {
+        const aProtects = a.hasDeepWorkBlock ? 1 : 0;
+        const bProtects = b.hasDeepWorkBlock ? 1 : 0;
+        if (aProtects !== bProtects) return aProtects - bProtects;
+      }
+
       if (entry.item.effort >= 90) {
         const aHasDeep = a.hasDeepWorkBlock ? 0 : 1;
         const bHasDeep = b.hasDeepWorkBlock ? 0 : 1;
@@ -569,7 +579,7 @@ export function suggestDailyLoad(items: readonly LifeRecord[], minutesPerDay: nu
     target.used += entry.item.effort;
     target.energyConsumed += energyCost;
     if (isQuickWin) target.quickWinCount++;
-    if (entry.item.effort >= 90) target.hasDeepWorkBlock = true;
+    if (entry.item.effort >= WEIGHTS.DEEP_WORK_PROTECTION_THRESHOLD) target.hasDeepWorkBlock = true;
     if (entry.item.preferredEnergy) {
       target.energyDistribution[entry.item.preferredEnergy] += entry.item.effort;
     }
