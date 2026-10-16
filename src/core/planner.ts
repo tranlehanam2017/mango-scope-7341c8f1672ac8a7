@@ -202,7 +202,8 @@ export function priorityFor(item: LifeRecord, today = localDay(), focusCategory?
     if (decay > 0) reasons.push("scheduled for future");
     
     if (item.impact >= 4) {
-      score += WEIGHTS.LONG_TERM_GOAL_BOOST;
+      const distancePenalty = Math.min(5, Math.floor(daysUntilDue / 30));
+      score += (WEIGHTS.LONG_TERM_GOAL_BOOST - distancePenalty);
       reasons.push("long-term goal elevation");
     }
   }
