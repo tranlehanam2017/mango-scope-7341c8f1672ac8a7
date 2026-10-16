@@ -69,6 +69,7 @@ const WEIGHTS = {
   SPRINT_ACCELERATION_BOOST: 45, // Significant boost for items in a focused sprint
   COGNITIVE_LOAD_THRESHOLD: 180, // Effort above which complexity starts penalizing more
   COGNITIVE_LOAD_PENALTY_FACTOR: 3, // Penalty per complexity dimension for high-effort tasks
+  ENERGY_EFFICIENCY_BOOST: 15, // Bonus for high-impact tasks matching preferred energy
 };
 
 export function localDay(date = new Date()): string {
@@ -365,6 +366,11 @@ export function priorityFor(item: LifeRecord, today = localDay(), focusCategory?
     reasons.push(`preferred time: ${item.preferredTime}`);
   }
 
+  if (item.preferredEnergy && item.impact >= 4) {
+    score += WEIGHTS.ENERGY_EFFICIENCY_BOOST;
+    reasons.push(`energy-efficiency boost (${item.preferredEnergy})`);
+  }
+
   if (item.status === "done") score = -1;
   if (item.status === "archived") {
     score = -100;
@@ -440,7 +446,11 @@ export function calculateConcentrationScore(entries: PlanEntry[]): number {
   const deepWorkRatio = totalEffort > 0 ? largeTaskEffort / totalEffort : 0;
   const maxCatCount = entries.length ? Math.max(...Object.values(catCounts)) : 0;
   const thematicFocusBonus = (maxCatCount / entries.length) * 20;
-  const dispersionPenalty = (numCategories / entries.length) * 50;
+  
+  // Refine dispersion penalty: allow a few small tasks without heavy penalty
+  const effectiveCategories = numCategories > 3 ? numCategories - 2 : numCategories;
+  const dispersionPenalty = (effectiveCategories / entries.length) * 40;
+  
   const highImpactDeepWork = deepWorkEntries.filter(e => e.item.impact >= 4).length;
   const deepWorkQualityBoost = (highImpactDeepWork / (entries.length || 1)) * 30;
   const concentration = (deepWorkRatio * 60) - dispersionPenalty + thematicFocusBonus + deepWorkQualityBoost + 40;
