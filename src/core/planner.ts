@@ -67,6 +67,8 @@ const WEIGHTS = {
   STRATEGIC_ALIGNMENT_BOOST: 15, // Bonus for tasks bridging multiple impact dimensions
   LONG_TERM_GOAL_BOOST: 12, // Boost for high-impact items due far in the future to prevent burial
   SPRINT_ACCELERATION_BOOST: 45, // Significant boost for items in a focused sprint
+  COGNITIVE_LOAD_THRESHOLD: 180, // Effort above which complexity starts penalizing more
+  COGNITIVE_LOAD_PENALTY_FACTOR: 3, // Penalty per complexity dimension for high-effort tasks
 };
 
 export function localDay(date = new Date()): string {
@@ -372,6 +374,16 @@ export function priorityFor(item: LifeRecord, today = localDay(), focusCategory?
     score -= 100;
     reasons.push("marked as stale");
   }
+
+  if (item.effort > WEIGHTS.COGNITIVE_LOAD_THRESHOLD && item.impactDimensions) {
+    const dimCount = Object.keys(item.impactDimensions).length;
+    if (dimCount > 1) {
+      const cogLoadPenalty = dimCount * WEIGHTS.COGNITIVE_LOAD_PENALTY_FACTOR;
+      score -= cogLoadPenalty;
+      reasons.push(`cognitive load penalty (-${cogLoadPenalty})`);
+    }
+  }
+
   if (reasons.length === 0) reasons.push("ranked by impact and effort");
 
   return { item, score: Math.round(score * 10) / 10, reasons, daysUntilDue };
