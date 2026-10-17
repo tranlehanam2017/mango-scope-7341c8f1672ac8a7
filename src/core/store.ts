@@ -41,6 +41,25 @@ export class RecordStore {
     this.commit();
   }
 
+  /**
+   * Transitions multiple records to a new status and updates timestamps.
+   */
+  transitionStatuses(ids: string[], newStatus: ItemStatus): void {
+    const idSet = new Set(ids);
+    let changed = false;
+    const now = new Date().toISOString();
+
+    this.records = this.records.map((item) => {
+      if (idSet.has(item.id)) {
+        changed = true;
+        return { ...item, status: newStatus, updatedAt: now };
+      }
+      return item;
+    });
+
+    if (changed) this.commit();
+  }
+
   remove(id: string): void {
     this.records = this.records.filter((item) => item.id !== id);
     this.commit();
