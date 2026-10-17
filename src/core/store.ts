@@ -6,6 +6,7 @@ type Listener = (records: readonly LifeRecord[]) => void;
 export class RecordStore {
   private readonly listeners = new Set<Listener>();
   private records: LifeRecord[];
+  private undoStack: LifeRecord[] | null = null;
 
   constructor(private readonly key: string, initial: LifeRecord[]) {
     this.records = this.read(initial);
@@ -33,6 +34,8 @@ export class RecordStore {
     const at = this.records.findIndex((item) => item.id === id);
     if (at === -1) return;
 
+    this.undoStack = [{ ...this.records[at] }];
+
     this.records[at] = {
       ...this.records[at],
       status: newStatus,
@@ -48,16 +51,53 @@ export class RecordStore {
     const idSet = new Set(ids);
     let changed = false;
     const now = new Date().toISOString();
+    const snapshot: LifeRecord[] = [];
 
     this.records = this.records.map((item) => {
       if (idSet.has(item.id)) {
         changed = true;
+        snapshot.push({ ...item });
         return { ...item, status: newStatus, updatedAt: now };
       }
       return item;
     });
 
-    if (changed) this.commit();
+    if (changed) {
+      this.undoStack = snapshot;
+      this.commit();
+    }
+  }
+
+  /**
+   * Pushes a record's due date forward and increments the postponement count.
+   */
+  postpone(id: string, newDueDate: string): void {
+    const at = this.records.findIndex((item) => item.id === id);
+    if (at === -1) return;
+
+    this.undoStack = [{ ...this.records[at] }];
+
+    this.records[at] = {
+      ...this.records[at],
+      dueDate: newDueDate,
+      postponedCount: (this.records[at].postponedCount || 0) + 1,
+      updatedAt: new Date().toISOString(),
+    };
+    this.commit();
+  }
+
+  undo(): void {
+    if (!this.undoStack) return;
+
+    const snapshot = this.undoStack;
+    this.undoStack = null;
+
+    this.records = this.records.map(item => {
+      const prev = snapshot.find(p => p.id === item.id);
+      return prev ? { ...prev } : item;
+    });
+
+    this.commit();
   }
 
   remove(id: string): void {
