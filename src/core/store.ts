@@ -1,4 +1,4 @@
-import type { LifeRecord } from "../types";
+import type { LifeRecord, ItemStatus } from "../types";
 
 interface StoreEnvelope { version: 1; records: LifeRecord[]; savedAt: string }
 type Listener = (records: readonly LifeRecord[]) => void;
@@ -23,6 +23,21 @@ export class RecordStore {
     const at = this.records.findIndex((item) => item.id === record.id);
     if (at >= 0) this.records[at] = { ...record };
     else this.records.push({ ...record });
+    this.commit();
+  }
+
+  /**
+   * Transitions a record to a new status and updates the modification timestamp.
+   */
+  transitionStatus(id: string, newStatus: ItemStatus): void {
+    const at = this.records.findIndex((item) => item.id === id);
+    if (at === -1) return;
+
+    this.records[at] = {
+      ...this.records[at],
+      status: newStatus,
+      updatedAt: new Date().toISOString(),
+    };
     this.commit();
   }
 
