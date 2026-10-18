@@ -6,7 +6,7 @@ type Listener = (records: readonly LifeRecord[]) => void;
 export class RecordStore {
   private readonly listeners = new Set<Listener>();
   private records: LifeRecord[];
-  private undoStack: LifeRecord[] | null = null;
+  private undoStack: { type: 'update' | 'delete'; data: LifeRecord[] } | null = null;
 
   constructor(private readonly key: string, initial: LifeRecord[]) {
     this.records = this.read(initial);
@@ -34,7 +34,7 @@ export class RecordStore {
     const at = this.records.findIndex((item) => item.id === id);
     if (at === -1) return;
 
-    this.undoStack = [{ ...this.records[at] }];
+    this.undoStack = { type: 'update', data: [{ ...this.records[at] }] };
 
     this.records[at] = {
       ...this.records[at],
@@ -63,7 +63,7 @@ export class RecordStore {
     });
 
     if (changed) {
-      this.undoStack = snapshot;
+      this.undoStack = { type: 'update', data: snapshot };
       this.commit();
     }
   }
@@ -85,7 +85,7 @@ export class RecordStore {
     });
 
     if (this.records.length !== originalLength) {
-      this.undoStack = snapshot;
+      this.undoStack = { type: 'delete', data: snapshot };
       this.commit();
     }
   }
@@ -97,7 +97,7 @@ export class RecordStore {
     const at = this.records.findIndex((item) => item.id === id);
     if (at === -1) return;
 
-    this.undoStack = [{ ...this.records[at] }];
+    this.undoStack = { type: 'update', data: [{ ...this.records[at] }] };
 
     this.records[at] = {
       ...this.records[at],
@@ -115,7 +115,7 @@ export class RecordStore {
     const at = this.records.findIndex((item) => item.id === id);
     if (at === -1) return;
 
-    this.undoStack = [{ ...this.records[at] }];
+    this.undoStack = { type: 'update', data: [{ ...this.records[at] }] };
 
     this.records[at] = {
       ...this.records[at],
@@ -132,7 +132,7 @@ export class RecordStore {
     const at = this.records.findIndex((item) => item.id === id);
     if (at === -1) return;
 
-    this.undoStack = [{ ...this.records[at] }];
+    this.undoStack = { type: 'update', data: [{ ...this.records[at] }] };
 
     this.records[at] = {
       ...this.records[at],
@@ -145,20 +145,14 @@ export class RecordStore {
   undo(): void {
     if (!this.undoStack) return;
 
-    const snapshot = this.undoStack;
+    const { type, data } = this.undoStack;
     this.undoStack = null;
 
-    // Check if undo is for a deletion or an update
-    const currentIds = new Set(this.records.map(r => r.id));
-    const deletedItems = snapshot.filter(p => !currentIds.has(p.id));
-
-    if (deletedItems.length > 0 && snapshot.length === deletedItems.length) {
-      // Restore deleted items
-      this.records = [...this.records, ...snapshot];
+    if (type === 'delete') {
+      this.records = [...this.records, ...data];
     } else {
-      // Restore updated items
       this.records = this.records.map(item => {
-        const prev = snapshot.find(p => p.id === item.id);
+        const prev = data.find(p => p.id === item.id);
         return prev ? { ...prev } : item;
       });
     }
@@ -171,7 +165,7 @@ export class RecordStore {
   }
 
   clear(): void {
-    this.undoStack = this.records.map(r => ({ ...r }));
+    this.undoStack = { type: 'delete', data: this.records.map(r => ({ ...r })) };
     this.records = [];
     this.commit();
   }
