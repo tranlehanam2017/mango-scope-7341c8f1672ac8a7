@@ -108,6 +108,40 @@ export class RecordStore {
     this.commit();
   }
 
+  /**
+   * Sets a dependency for a record.
+   */
+  setDependency(id: string, dependsOnId: string | null): void {
+    const at = this.records.findIndex((item) => item.id === id);
+    if (at === -1) return;
+
+    this.undoStack = [{ ...this.records[at] }];
+
+    this.records[at] = {
+      ...this.records[at],
+      dependsOn: dependsOnId,
+      updatedAt: new Date().toISOString(),
+    };
+    this.commit();
+  }
+
+  /**
+   * Sets a parent for a record to create a hierarchy.
+   */
+  setParent(id: string, parentId: string | null): void {
+    const at = this.records.findIndex((item) => item.id === id);
+    if (at === -1) return;
+
+    this.undoStack = [{ ...this.records[at] }];
+
+    this.records[at] = {
+      ...this.records[at],
+      parentId: parentId,
+      updatedAt: new Date().toISOString(),
+    };
+    this.commit();
+  }
+
   undo(): void {
     if (!this.undoStack) return;
 
