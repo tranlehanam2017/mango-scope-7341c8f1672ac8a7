@@ -155,8 +155,9 @@ export class RecordStore {
     if (type === 'delete') {
       this.records = [...this.records, ...data];
     } else {
+      const updateMap = new Map(data.map(item => [item.id, item]));
       this.records = this.records.map(item => {
-        const prev = data.find(p => p.id === item.id);
+        const prev = updateMap.get(item.id);
         return prev ? { ...prev } : item;
       });
     }
