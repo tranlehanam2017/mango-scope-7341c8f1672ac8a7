@@ -22,8 +22,12 @@ export class RecordStore {
 
   upsert(record: LifeRecord): void {
     const at = this.records.findIndex((item) => item.id === record.id);
-    if (at >= 0) this.records[at] = { ...record };
-    else this.records.push({ ...record });
+    if (at >= 0) {
+      this.undoStack = { type: 'update', data: [{ ...this.records[at] }] };
+      this.records[at] = { ...record };
+    } else {
+      this.records.push({ ...record });
+    }
     this.commit();
   }
 
