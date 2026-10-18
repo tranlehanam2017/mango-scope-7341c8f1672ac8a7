@@ -69,6 +69,28 @@ export class RecordStore {
   }
 
   /**
+   * Removes multiple records by ID.
+   */
+  removeMany(ids: string[]): void {
+    const idSet = new Set(ids);
+    const snapshot: LifeRecord[] = [];
+    const originalLength = this.records.length;
+
+    this.records = this.records.filter((item) => {
+      if (idSet.has(item.id)) {
+        snapshot.push({ ...item });
+        return false;
+      }
+      return true;
+    });
+
+    if (this.records.length !== originalLength) {
+      this.undoStack = snapshot;
+      this.commit();
+    }
+  }
+
+  /**
    * Pushes a record's due date forward and increments the postponement count.
    */
   postpone(id: string, newDueDate: string): void {
@@ -92,20 +114,30 @@ export class RecordStore {
     const snapshot = this.undoStack;
     this.undoStack = null;
 
-    this.records = this.records.map(item => {
-      const prev = snapshot.find(p => p.id === item.id);
-      return prev ? { ...prev } : item;
-    });
+    // Check if undo is for a deletion or an update
+    const currentIds = new Set(this.records.map(r => r.id));
+    const deletedItems = snapshot.filter(p => !currentIds.has(p.id));
+
+    if (deletedItems.length > 0 && snapshot.length === deletedItems.length) {
+      // Restore deleted items
+      this.records = [...this.records, ...snapshot];
+    } else {
+      // Restore updated items
+      this.records = this.records.map(item => {
+        const prev = snapshot.find(p => p.id === item.id);
+        return prev ? { ...prev } : item;
+      });
+    }
 
     this.commit();
   }
 
   remove(id: string): void {
-    this.records = this.records.filter((item) => item.id !== id);
-    this.commit();
+    this.removeMany([id]);
   }
 
   clear(): void {
+    this.undoStack = this.records.map(r => ({ ...r }));
     this.records = [];
     this.commit();
   }
