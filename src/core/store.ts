@@ -73,13 +73,14 @@ export class RecordStore {
   }
 
   /**
-   * Removes multiple records by ID.
+   * Removes multiple records by ID and cleans up dangling relationships.
    */
   removeMany(ids: string[]): void {
     const idSet = new Set(ids);
     const snapshot: LifeRecord[] = [];
     const originalLength = this.records.length;
 
+    // Snapshot for undo before filtering
     this.records = this.records.filter((item) => {
       if (idSet.has(item.id)) {
         snapshot.push({ ...item });
@@ -89,6 +90,21 @@ export class RecordStore {
     });
 
     if (this.records.length !== originalLength) {
+      // Clean up dangling dependencies and parents to maintain referential integrity
+      this.records = this.records.map(item => {
+        let changed = false;
+        const next = { ...item };
+        if (item.dependsOn && idSet.has(item.dependsOn)) {
+          next.dependsOn = undefined;
+          changed = true;
+        }
+        if (item.parentId && idSet.has(item.parentId)) {
+          next.parentId = undefined;
+          changed = true;
+        }
+        return changed ? next : item;
+      });
+
       this.undoStack = { type: 'delete', data: snapshot };
       this.commit();
     }
