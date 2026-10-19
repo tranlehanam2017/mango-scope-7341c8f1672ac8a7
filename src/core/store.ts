@@ -66,22 +66,6 @@ export class RecordStore {
   }
 
   /**
-   * Removes multiple records by ID and cleans up dangling relationships.
-   */
-  removeMany(ids: string[]): void {
-    const idSet = new Set(ids);
-    const originalLength = this.records.length;
-
-    this.records = this.records.filter((item) => !idSet.has(item.id));
-    if (this.records.length === originalLength) return;
-
-    this.undoStack = this.records.concat(
-      /* retain previous state in undo by snapshotting before the public filter below */
-      []
-    );
-  }
-
-  /**
    * Pushes a record's due date forward and increments the postponement count.
    */
   postpone(id: string, newDueDate: string): void {
@@ -133,6 +117,22 @@ export class RecordStore {
   /**
    * Removes multiple records by ID, cleans up dangling relationships, and restores all of that state on undo.
    */
+  removeMany(ids: string[]): void {
+    const idSet = new Set(ids);
+    const originalLength = this.records.length;
+    const snapshot = this.records.map((item) => cloneRecord(item));
+
+    this.records = this.records.filter((item) => !idSet.has(item.id));
+    if (this.records.length === originalLength) return;
+
+    this.undoStack = snapshot;
+    this.cleanupAfterRemoval(idSet);
+    this.commit();
+  }
+
+  /**
+   * Cleans dangling relationship references after records have been removed.
+   */
   protected cleanupAfterRemoval(removed: Set<string>): void {
     this.records = this.records.map((item) => {
       let changed = false;
@@ -147,19 +147,6 @@ export class RecordStore {
       }
       return changed ? next : item;
     });
-  }
-
-  removeMany(ids: string[]): void {
-    const idSet = new Set(ids);
-    const originalLength = this.records.length;
-    const snapshot = this.records.map((item) => cloneRecord(item));
-
-    this.records = this.records.filter((item) => !idSet.has(item.id));
-    if (this.records.length === originalLength) return;
-
-    this.undoStack = snapshot;
-    this.cleanupAfterRemoval(idSet);
-    this.commit();
   }
 
   undo(): void {
@@ -192,10 +179,15 @@ export class RecordStore {
 
   private read(fallback: LifeRecord[]): LifeRecord[] {
     try {
+      if (typeof localStorage === "undefined") return fallback.map(cloneRecord);
       const parsed = JSON.parse(localStorage.getItem(this.key) ?? "null") as StoreEnvelope | null;
       if (parsed?.version === 1 && Array.isArray(parsed.records)) return parsed.records.map(cloneRecord);
     } catch {
-      localStorage.removeItem(this.key);
+      try {
+        if (typeof localStorage !== "undefined") localStorage.removeItem(this.key);
+      } catch {
+        /* ignore storage cleanup failures */
+      }
     }
     return fallback.map(cloneRecord);
   }
@@ -206,7 +198,11 @@ export class RecordStore {
       records: this.records.map((item) => cloneRecord(item)),
       savedAt: new Date().toISOString(),
     };
-    localStorage.setItem(this.key, JSON.stringify(envelope));
+    try {
+      if (typeof localStorage !== "undefined") localStorage.setItem(this.key, JSON.stringify(envelope));
+    } catch {
+      /* persistence is best-effort; listeners still receive the in-memory state */
+    }
     for (const listener of this.listeners) listener(this.all());
   }
 }
