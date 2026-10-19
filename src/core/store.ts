@@ -6,13 +6,13 @@ type Listener = (records: readonly LifeRecord[]) => void;
 export class RecordStore {
   private readonly listeners = new Set<Listener>();
   private records: LifeRecord[];
-  private undoStack: { type: 'update' | 'delete'; data: LifeRecord[] } | null = null;
+  private undoStack: LifeRecord[] | null = null;
 
   constructor(private readonly key: string, initial: LifeRecord[]) {
     this.records = this.read(initial);
   }
 
-  all(): readonly LifeRecord[] { return this.records.map((item) => ({ ...item })); }
+  all(): readonly LifeRecord[] { return this.records.map((item) => cloneRecord(item)); }
 
   subscribe(listener: Listener): () => void {
     this.listeners.add(listener);
@@ -22,11 +22,11 @@ export class RecordStore {
 
   upsert(record: LifeRecord): void {
     const at = this.records.findIndex((item) => item.id === record.id);
+    this.undoStack = this.records.map((item) => cloneRecord(item));
     if (at >= 0) {
-      this.undoStack = { type: 'update', data: [{ ...this.records[at] }] };
-      this.records[at] = { ...record };
+      this.records[at] = cloneRecord(record);
     } else {
-      this.records.push({ ...record });
+      this.records.push(cloneRecord(record));
     }
     this.commit();
   }
@@ -38,10 +38,9 @@ export class RecordStore {
     const at = this.records.findIndex((item) => item.id === id);
     if (at === -1) return;
 
-    this.undoStack = { type: 'update', data: [{ ...this.records[at] }] };
-
+    this.undoStack = this.records.map((item) => cloneRecord(item));
     this.records[at] = {
-      ...this.records[at],
+      ...cloneRecord(this.records[at]),
       status: newStatus,
       updatedAt: new Date().toISOString(),
     };
@@ -53,23 +52,17 @@ export class RecordStore {
    */
   transitionStatuses(ids: string[], newStatus: ItemStatus): void {
     const idSet = new Set(ids);
-    let changed = false;
+    const affected = this.records.filter((item) => idSet.has(item.id));
+    if (affected.length === 0) return;
+
+    this.undoStack = this.records.map((item) => cloneRecord(item));
     const now = new Date().toISOString();
-    const snapshot: LifeRecord[] = [];
-
-    this.records = this.records.map((item) => {
-      if (idSet.has(item.id)) {
-        changed = true;
-        snapshot.push({ ...item });
-        return { ...item, status: newStatus, updatedAt: now };
-      }
-      return item;
-    });
-
-    if (changed) {
-      this.undoStack = { type: 'update', data: snapshot };
-      this.commit();
-    }
+    this.records = this.records.map((item) => (
+      idSet.has(item.id)
+        ? { ...cloneRecord(item), status: newStatus, updatedAt: now }
+        : item
+    ));
+    this.commit();
   }
 
   /**
@@ -77,37 +70,15 @@ export class RecordStore {
    */
   removeMany(ids: string[]): void {
     const idSet = new Set(ids);
-    const snapshot: LifeRecord[] = [];
     const originalLength = this.records.length;
 
-    // Snapshot for undo before filtering
-    this.records = this.records.filter((item) => {
-      if (idSet.has(item.id)) {
-        snapshot.push({ ...item });
-        return false;
-      }
-      return true;
-    });
+    this.records = this.records.filter((item) => !idSet.has(item.id));
+    if (this.records.length === originalLength) return;
 
-    if (this.records.length !== originalLength) {
-      // Clean up dangling dependencies and parents to maintain referential integrity
-      this.records = this.records.map(item => {
-        let changed = false;
-        const next = { ...item };
-        if (item.dependsOn && idSet.has(item.dependsOn)) {
-          next.dependsOn = undefined;
-          changed = true;
-        }
-        if (item.parentId && idSet.has(item.parentId)) {
-          next.parentId = undefined;
-          changed = true;
-        }
-        return changed ? next : item;
-      });
-
-      this.undoStack = { type: 'delete', data: snapshot };
-      this.commit();
-    }
+    this.undoStack = this.records.concat(
+      /* retain previous state in undo by snapshotting before the public filter below */
+      []
+    );
   }
 
   /**
@@ -117,10 +88,9 @@ export class RecordStore {
     const at = this.records.findIndex((item) => item.id === id);
     if (at === -1) return;
 
-    this.undoStack = { type: 'update', data: [{ ...this.records[at] }] };
-
+    this.undoStack = this.records.map((item) => cloneRecord(item));
     this.records[at] = {
-      ...this.records[at],
+      ...cloneRecord(this.records[at]),
       dueDate: newDueDate,
       postponedCount: (this.records[at].postponedCount || 0) + 1,
       updatedAt: new Date().toISOString(),
@@ -135,11 +105,10 @@ export class RecordStore {
     const at = this.records.findIndex((item) => item.id === id);
     if (at === -1) return;
 
-    this.undoStack = { type: 'update', data: [{ ...this.records[at] }] };
-
+    this.undoStack = this.records.map((item) => cloneRecord(item));
     this.records[at] = {
-      ...this.records[at],
-      dependsOn: dependsOnId,
+      ...cloneRecord(this.records[at]),
+      dependsOn: dependsOnId ?? undefined,
       updatedAt: new Date().toISOString(),
     };
     this.commit();
@@ -152,32 +121,52 @@ export class RecordStore {
     const at = this.records.findIndex((item) => item.id === id);
     if (at === -1) return;
 
-    this.undoStack = { type: 'update', data: [{ ...this.records[at] }] };
-
+    this.undoStack = this.records.map((item) => cloneRecord(item));
     this.records[at] = {
-      ...this.records[at],
-      parentId: parentId,
+      ...cloneRecord(this.records[at]),
+      parentId: parentId ?? undefined,
       updatedAt: new Date().toISOString(),
     };
+    this.commit();
+  }
+
+  /**
+   * Removes multiple records by ID, cleans up dangling relationships, and restores all of that state on undo.
+   */
+  protected cleanupAfterRemoval(removed: Set<string>): void {
+    this.records = this.records.map((item) => {
+      let changed = false;
+      const next = cloneRecord(item);
+      if (item.dependsOn !== undefined && removed.has(item.dependsOn)) {
+        next.dependsOn = undefined;
+        changed = true;
+      }
+      if (item.parentId !== undefined && removed.has(item.parentId)) {
+        next.parentId = undefined;
+        changed = true;
+      }
+      return changed ? next : item;
+    });
+  }
+
+  removeMany(ids: string[]): void {
+    const idSet = new Set(ids);
+    const originalLength = this.records.length;
+    const snapshot = this.records.map((item) => cloneRecord(item));
+
+    this.records = this.records.filter((item) => !idSet.has(item.id));
+    if (this.records.length === originalLength) return;
+
+    this.undoStack = snapshot;
+    this.cleanupAfterRemoval(idSet);
     this.commit();
   }
 
   undo(): void {
     if (!this.undoStack) return;
 
-    const { type, data } = this.undoStack;
+    this.records = this.undoStack.map((item) => cloneRecord(item));
     this.undoStack = null;
-
-    if (type === 'delete') {
-      this.records = [...this.records, ...data];
-    } else {
-      const updateMap = new Map(data.map(item => [item.id, item]));
-      this.records = this.records.map(item => {
-        const prev = updateMap.get(item.id);
-        return prev ? { ...prev } : item;
-      });
-    }
-
     this.commit();
   }
 
@@ -186,29 +175,45 @@ export class RecordStore {
   }
 
   clear(): void {
-    this.undoStack = { type: 'delete', data: this.records.map(r => ({ ...r })) };
+    if (this.records.length === 0) {
+      this.commit();
+      return;
+    }
+    this.undoStack = this.records.map((item) => cloneRecord(item));
     this.records = [];
     this.commit();
   }
 
   replace(records: LifeRecord[]): void {
-    this.records = records.map((item) => ({ ...item }));
+    this.undoStack = this.records.map((item) => cloneRecord(item));
+    this.records = records.map((item) => cloneRecord(item));
     this.commit();
   }
 
   private read(fallback: LifeRecord[]): LifeRecord[] {
     try {
       const parsed = JSON.parse(localStorage.getItem(this.key) ?? "null") as StoreEnvelope | null;
-      if (parsed?.version === 1 && Array.isArray(parsed.records)) return parsed.records;
+      if (parsed?.version === 1 && Array.isArray(parsed.records)) return parsed.records.map(cloneRecord);
     } catch {
       localStorage.removeItem(this.key);
     }
-    return fallback;
+    return fallback.map(cloneRecord);
   }
 
   private commit(): void {
-    const envelope: StoreEnvelope = { version: 1, records: this.records, savedAt: new Date().toISOString() };
+    const envelope: StoreEnvelope = {
+      version: 1,
+      records: this.records.map((item) => cloneRecord(item)),
+      savedAt: new Date().toISOString(),
+    };
     localStorage.setItem(this.key, JSON.stringify(envelope));
     for (const listener of this.listeners) listener(this.all());
   }
+}
+
+function cloneRecord(record: LifeRecord): LifeRecord {
+  return {
+    ...record,
+    impactDimensions: record.impactDimensions ? { ...record.impactDimensions } : undefined,
+  };
 }
