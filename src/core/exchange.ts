@@ -127,10 +127,19 @@ function decodeRecord(value: unknown, index: number, theme: ThemeConfig): LifeRe
 }
 
 export function importJson(source: string, theme: ThemeConfig): LifeRecord[] {
-  const parsed = JSON.parse(source) as { schema?: unknown; records?: unknown };
-  if (parsed.schema !== 1 || !Array.isArray(parsed.records)) throw new Error("Unsupported backup format.");
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(source);
+  } catch {
+    throw new Error("Unsupported backup format.");
+  }
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+    throw new Error("Unsupported backup format.");
+  }
+  const envelope = parsed as { schema?: unknown; records?: unknown };
+  if (envelope.schema !== 1 || !Array.isArray(envelope.records)) throw new Error("Unsupported backup format.");
   const ids = new Set<string>();
-  const records = parsed.records.map((value, index) => {
+  const records = envelope.records.map((value, index) => {
     const item = decodeRecord(value, index, theme);
     if (ids.has(item.id)) throw new Error(`Record ${index + 1} has a duplicate id.`);
     ids.add(item.id);
