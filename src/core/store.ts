@@ -89,10 +89,15 @@ export class RecordStore {
     const at = this.records.findIndex((item) => item.id === id);
     if (at === -1) return;
 
+    const normalized = dependsOnId ?? undefined;
+    if (normalized === id) return;
+    if (normalized !== undefined && !this.records.some((item) => item.id === normalized)) return;
+    if (normalized !== undefined && this.wouldCreateCycle(id, normalized, "dependsOn")) return;
+
     this.undoStack = this.records.map((item) => cloneRecord(item));
     this.records[at] = {
       ...cloneRecord(this.records[at]),
-      dependsOn: dependsOnId ?? undefined,
+      dependsOn: normalized,
       updatedAt: new Date().toISOString(),
     };
     this.commit();
@@ -105,10 +110,15 @@ export class RecordStore {
     const at = this.records.findIndex((item) => item.id === id);
     if (at === -1) return;
 
+    const normalized = parentId ?? undefined;
+    if (normalized === id) return;
+    if (normalized !== undefined && !this.records.some((item) => item.id === normalized)) return;
+    if (normalized !== undefined && this.wouldCreateCycle(id, normalized, "parentId")) return;
+
     this.undoStack = this.records.map((item) => cloneRecord(item));
     this.records[at] = {
       ...cloneRecord(this.records[at]),
-      parentId: parentId ?? undefined,
+      parentId: normalized,
       updatedAt: new Date().toISOString(),
     };
     this.commit();
@@ -135,17 +145,14 @@ export class RecordStore {
    */
   protected cleanupAfterRemoval(removed: Set<string>): void {
     this.records = this.records.map((item) => {
-      let changed = false;
       const next = cloneRecord(item);
       if (item.dependsOn !== undefined && removed.has(item.dependsOn)) {
         next.dependsOn = undefined;
-        changed = true;
       }
       if (item.parentId !== undefined && removed.has(item.parentId)) {
         next.parentId = undefined;
-        changed = true;
       }
-      return changed ? next : item;
+      return next;
     });
   }
 
@@ -177,11 +184,75 @@ export class RecordStore {
     this.commit();
   }
 
+  private wouldCreateCycle(id: string, targetId: string, relation: "dependsOn" | "parentId"): boolean {
+    const targets = new Map(this.records.map((item) => [
+      item.id,
+      relation === "dependsOn" ? item.dependsOn : item.parentId,
+    ]));
+    targets.set(id, targetId);
+
+    for (const start of targets.keys()) {
+      const seen = new Set<string>([start]);
+      let cursor = targets.get(start);
+      while (cursor) {
+        if (seen.has(cursor)) return true;
+        seen.add(cursor);
+        cursor = targets.get(cursor);
+      }
+    }
+    return false;
+  }
+
   private read(fallback: LifeRecord[]): LifeRecord[] {
     try {
       if (typeof localStorage === "undefined") return fallback.map(cloneRecord);
-      const parsed = JSON.parse(localStorage.getItem(this.key) ?? "null") as StoreEnvelope | null;
-      if (parsed?.version === 1 && Array.isArray(parsed.records)) return parsed.records.map(cloneRecord);
+      const raw = localStorage.getItem(this.key);
+      if (raw === null) return fallback.map(cloneRecord);
+
+      let parsed: unknown;
+      try {
+        parsed = JSON.parse(raw);
+      } catch {
+        try {
+          localStorage.removeItem(this.key);
+        } catch {
+          /* ignore storage cleanup failures */
+        }
+        return fallback.map(cloneRecord);
+      }
+
+      if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+        try {
+          localStorage.removeItem(this.key);
+        } catch {
+          /* ignore storage cleanup failures */
+        }
+        return fallback.map(cloneRecord);
+      }
+
+      const envelope = parsed as { version?: unknown; records?: unknown };
+      if (envelope.version !== 1 || !Array.isArray(envelope.records)) {
+        try {
+          localStorage.removeItem(this.key);
+        } catch {
+          /* ignore storage cleanup failures */
+        }
+        return fallback.map(cloneRecord);
+      }
+
+      const records: LifeRecord[] = [];
+      for (const item of envelope.records) {
+        if (!item || typeof item !== "object" || Array.isArray(item)) {
+          try {
+            localStorage.removeItem(this.key);
+          } catch {
+            /* ignore storage cleanup failures */
+          }
+          return fallback.map(cloneRecord);
+        }
+        records.push(cloneRecord(item as LifeRecord));
+      }
+      return records;
     } catch {
       try {
         if (typeof localStorage !== "undefined") localStorage.removeItem(this.key);
