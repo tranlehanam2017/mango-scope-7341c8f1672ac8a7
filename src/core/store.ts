@@ -25,7 +25,10 @@ export class RecordStore {
   }
 
   upsert(record: LifeRecord): void {
+    if (!isStoredRecord(record)) return;
     const next = cloneRecord(record);
+    if (next.dependsOn == null) next.dependsOn = undefined;
+    if (next.parentId == null) next.parentId = undefined;
     if (next.dependsOn === next.id) next.dependsOn = undefined;
     if (next.parentId === next.id) next.parentId = undefined;
     if (next.dependsOn !== undefined && this.wouldCreateCycle(next.id, next.dependsOn, "dependsOn")) {
@@ -45,11 +48,8 @@ export class RecordStore {
     this.commit();
   }
 
-  /**
-   * Transitions a record to a new status and updates the modification timestamp.
-   */
   transitionStatus(id: string, newStatus: ItemStatus): void {
-    if (!VALID_STATUSES.includes(newStatus)) return;
+    if (typeof id !== "string" || id.length < 1 || !VALID_STATUSES.includes(newStatus)) return;
     const at = this.records.findIndex((item) => item.id === id);
     if (at === -1) return;
 
@@ -62,11 +62,10 @@ export class RecordStore {
     this.commit();
   }
 
-  /**
-   * Transitions multiple records to a new status and updates timestamps.
-   */
   transitionStatuses(ids: string[], newStatus: ItemStatus): void {
-    if (!Array.isArray(ids) || !VALID_STATUSES.includes(newStatus)) return;
+    if (!Array.isArray(ids) || ids.length === 0 ||
+        !ids.every((id) => typeof id === "string" && id.length > 0) ||
+        !VALID_STATUSES.includes(newStatus)) return;
     const idSet = new Set(ids);
     const affected = this.records.filter((item) => idSet.has(item.id));
     if (affected.length === 0) return;
@@ -81,11 +80,8 @@ export class RecordStore {
     this.commit();
   }
 
-  /**
-   * Pushes a record's due date forward and increments the postponement count.
-   */
   postpone(id: string, newDueDate: string): void {
-    if (!isCalendarDay(newDueDate)) return;
+    if (typeof id !== "string" || id.length < 1 || !isCalendarDay(newDueDate)) return;
     const at = this.records.findIndex((item) => item.id === id);
     if (at === -1) return;
 
@@ -99,10 +95,10 @@ export class RecordStore {
     this.commit();
   }
 
-  /**
-   * Sets a dependency for a record.
-   */
   setDependency(id: string, dependsOnId: string | null): void {
+    if (typeof id !== "string" || id.length < 1) return;
+    if (dependsOnId !== null && (typeof dependsOnId !== "string" || dependsOnId.length < 1 || dependsOnId.length > 120)) return;
+
     const at = this.records.findIndex((item) => item.id === id);
     if (at === -1) return;
 
@@ -110,6 +106,7 @@ export class RecordStore {
     if (normalized === id) return;
     if (normalized !== undefined && !this.records.some((item) => item.id === normalized)) return;
     if (normalized !== undefined && this.wouldCreateCycle(id, normalized, "dependsOn")) return;
+    if ((this.records[at].dependsOn ?? undefined) === normalized) return;
 
     this.undoStack = this.records.map((item) => cloneRecord(item));
     this.records[at] = {
@@ -120,10 +117,10 @@ export class RecordStore {
     this.commit();
   }
 
-  /**
-   * Sets a parent for a record to create a hierarchy.
-   */
   setParent(id: string, parentId: string | null): void {
+    if (typeof id !== "string" || id.length < 1) return;
+    if (parentId !== null && (typeof parentId !== "string" || parentId.length < 1 || parentId.length > 120)) return;
+
     const at = this.records.findIndex((item) => item.id === id);
     if (at === -1) return;
 
@@ -131,6 +128,7 @@ export class RecordStore {
     if (normalized === id) return;
     if (normalized !== undefined && !this.records.some((item) => item.id === normalized)) return;
     if (normalized !== undefined && this.wouldCreateCycle(id, normalized, "parentId")) return;
+    if ((this.records[at].parentId ?? undefined) === normalized) return;
 
     this.undoStack = this.records.map((item) => cloneRecord(item));
     this.records[at] = {
@@ -141,11 +139,9 @@ export class RecordStore {
     this.commit();
   }
 
-  /**
-   * Removes multiple records by ID, cleans up dangling relationships, and restores all of that state on undo.
-   */
   removeMany(ids: string[]): void {
-    if (!Array.isArray(ids)) return;
+    if (!Array.isArray(ids) || ids.length === 0 ||
+        !ids.every((id) => typeof id === "string" && id.length > 0)) return;
     const idSet = new Set(ids);
     const originalLength = this.records.length;
     const snapshot = this.records.map((item) => cloneRecord(item));
@@ -158,9 +154,6 @@ export class RecordStore {
     this.commit();
   }
 
-  /**
-   * Cleans dangling relationship references after records have been removed.
-   */
   protected cleanupAfterRemoval(removed: Set<string>): void {
     this.records = this.records.map((item) => {
       const next = cloneRecord(item);
@@ -183,6 +176,7 @@ export class RecordStore {
   }
 
   remove(id: string): void {
+    if (typeof id !== "string" || id.length < 1) return;
     this.removeMany([id]);
   }
 
@@ -197,7 +191,7 @@ export class RecordStore {
   }
 
   replace(records: LifeRecord[]): void {
-    if (!Array.isArray(records)) return;
+    if (!Array.isArray(records) || !records.every((record) => isStoredRecord(record))) return;
     this.undoStack = this.records.map((item) => cloneRecord(item));
     this.records = records.map((item) => cloneRecord(item));
     this.commit();
@@ -262,12 +256,13 @@ export class RecordStore {
           removeStored();
           return fallback.map(cloneRecord);
         }
-        if (ids.has(item.id)) {
+        const record = cloneRecord(item as LifeRecord);
+        if (ids.has(record.id)) {
           removeStored();
           return fallback.map(cloneRecord);
         }
-        ids.add(item.id);
-        records.push(cloneRecord(item));
+        ids.add(record.id);
+        records.push(record);
       }
 
       for (const record of records) {
@@ -321,6 +316,8 @@ export class RecordStore {
 function cloneRecord(record: LifeRecord): LifeRecord {
   return {
     ...record,
+    dependsOn: record.dependsOn == null ? undefined : record.dependsOn,
+    parentId: record.parentId == null ? undefined : record.parentId,
     impactDimensions: record.impactDimensions ? { ...record.impactDimensions } : undefined,
   };
 }
@@ -361,6 +358,7 @@ function isStoredRecord(value: unknown): value is LifeRecord {
   }
   if (raw.impactDimensions !== undefined) {
     if (!raw.impactDimensions || typeof raw.impactDimensions !== "object" || Array.isArray(raw.impactDimensions)) return false;
+    if (Object.keys(raw.impactDimensions).length > 50) return false;
     for (const [key, value] of Object.entries(raw.impactDimensions)) {
       if (key.length < 1 || key.length > 80) return false;
       if (typeof value !== "number" || !Number.isFinite(value) || value < -1000 || value > 1000) return false;

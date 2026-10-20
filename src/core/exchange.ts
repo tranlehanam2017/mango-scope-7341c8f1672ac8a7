@@ -92,6 +92,9 @@ function decodeRecord(value: unknown, index: number, theme: ThemeConfig): LifeRe
         Array.isArray(raw.impactDimensions)) {
       throw new Error(`Record ${index + 1} has invalid impact dimensions.`);
     }
+    if (Object.keys(raw.impactDimensions).length > 50) {
+      throw new Error(`Record ${index + 1} has too many impact dimensions.`);
+    }
     const dimensions: Record<string, number> = {};
     for (const [key, value] of Object.entries(raw.impactDimensions)) {
       if (key.length < 1 || key.length > 80) {
@@ -185,6 +188,7 @@ export function exportCsv(records: readonly LifeRecord[]): string {
 }
 
 export function download(name: string, contents: string, type: string): void {
+  if (typeof document === "undefined") return;
   const url = URL.createObjectURL(new Blob([contents], { type }));
   const anchor = Object.assign(document.createElement("a"), { href: url, download: name });
   anchor.click();
