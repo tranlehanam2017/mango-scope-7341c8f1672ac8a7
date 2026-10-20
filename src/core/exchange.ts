@@ -129,7 +129,7 @@ function decodeRecord(value: unknown, index: number, theme: ThemeConfig): LifeRe
 export function importJson(source: string, theme: ThemeConfig): LifeRecord[] {
   let parsed: unknown;
   try {
-    parsed = JSON.parse(source);
+    parsed = JSON.parse(source.replace(/^\uFEFF/, ""));
   } catch {
     throw new Error("Unsupported backup format.");
   }

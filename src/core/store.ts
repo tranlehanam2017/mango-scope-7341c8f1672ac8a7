@@ -3,6 +3,10 @@ import type { LifeRecord, ItemStatus } from "../types";
 interface StoreEnvelope { version: 1; records: LifeRecord[]; savedAt: string }
 type Listener = (records: readonly LifeRecord[]) => void;
 
+const VALID_STATUSES: readonly ItemStatus[] = ["planned", "active", "stale", "done", "archived"];
+const ENERGY_LEVELS = ["high", "medium", "low"];
+const TIMES_OF_DAY = ["morning", "afternoon", "evening"];
+
 export class RecordStore {
   private readonly listeners = new Set<Listener>();
   private records: LifeRecord[];
@@ -21,12 +25,22 @@ export class RecordStore {
   }
 
   upsert(record: LifeRecord): void {
-    const at = this.records.findIndex((item) => item.id === record.id);
+    const next = cloneRecord(record);
+    if (next.dependsOn === next.id) next.dependsOn = undefined;
+    if (next.parentId === next.id) next.parentId = undefined;
+    if (next.dependsOn !== undefined && this.wouldCreateCycle(next.id, next.dependsOn, "dependsOn")) {
+      next.dependsOn = undefined;
+    }
+    if (next.parentId !== undefined && this.wouldCreateCycle(next.id, next.parentId, "parentId")) {
+      next.parentId = undefined;
+    }
+
+    const at = this.records.findIndex((item) => item.id === next.id);
     this.undoStack = this.records.map((item) => cloneRecord(item));
     if (at >= 0) {
-      this.records[at] = cloneRecord(record);
+      this.records[at] = next;
     } else {
-      this.records.push(cloneRecord(record));
+      this.records.push(next);
     }
     this.commit();
   }
@@ -35,6 +49,7 @@ export class RecordStore {
    * Transitions a record to a new status and updates the modification timestamp.
    */
   transitionStatus(id: string, newStatus: ItemStatus): void {
+    if (!VALID_STATUSES.includes(newStatus)) return;
     const at = this.records.findIndex((item) => item.id === id);
     if (at === -1) return;
 
@@ -51,6 +66,7 @@ export class RecordStore {
    * Transitions multiple records to a new status and updates timestamps.
    */
   transitionStatuses(ids: string[], newStatus: ItemStatus): void {
+    if (!Array.isArray(ids) || !VALID_STATUSES.includes(newStatus)) return;
     const idSet = new Set(ids);
     const affected = this.records.filter((item) => idSet.has(item.id));
     if (affected.length === 0) return;
@@ -69,6 +85,7 @@ export class RecordStore {
    * Pushes a record's due date forward and increments the postponement count.
    */
   postpone(id: string, newDueDate: string): void {
+    if (!isCalendarDay(newDueDate)) return;
     const at = this.records.findIndex((item) => item.id === id);
     if (at === -1) return;
 
@@ -128,6 +145,7 @@ export class RecordStore {
    * Removes multiple records by ID, cleans up dangling relationships, and restores all of that state on undo.
    */
   removeMany(ids: string[]): void {
+    if (!Array.isArray(ids)) return;
     const idSet = new Set(ids);
     const originalLength = this.records.length;
     const snapshot = this.records.map((item) => cloneRecord(item));
@@ -179,6 +197,7 @@ export class RecordStore {
   }
 
   replace(records: LifeRecord[]): void {
+    if (!Array.isArray(records)) return;
     this.undoStack = this.records.map((item) => cloneRecord(item));
     this.records = records.map((item) => cloneRecord(item));
     this.commit();
@@ -204,6 +223,14 @@ export class RecordStore {
   }
 
   private read(fallback: LifeRecord[]): LifeRecord[] {
+    const removeStored = () => {
+      try {
+        if (typeof localStorage !== "undefined") localStorage.removeItem(this.key);
+      } catch {
+        /* ignore storage cleanup failures */
+      }
+    };
+
     try {
       if (typeof localStorage === "undefined") return fallback.map(cloneRecord);
       const raw = localStorage.getItem(this.key);
@@ -213,45 +240,58 @@ export class RecordStore {
       try {
         parsed = JSON.parse(raw);
       } catch {
-        try {
-          localStorage.removeItem(this.key);
-        } catch {
-          /* ignore storage cleanup failures */
-        }
+        removeStored();
         return fallback.map(cloneRecord);
       }
 
       if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
-        try {
-          localStorage.removeItem(this.key);
-        } catch {
-          /* ignore storage cleanup failures */
-        }
+        removeStored();
         return fallback.map(cloneRecord);
       }
 
       const envelope = parsed as { version?: unknown; records?: unknown };
       if (envelope.version !== 1 || !Array.isArray(envelope.records)) {
-        try {
-          localStorage.removeItem(this.key);
-        } catch {
-          /* ignore storage cleanup failures */
-        }
+        removeStored();
         return fallback.map(cloneRecord);
       }
 
       const records: LifeRecord[] = [];
+      const ids = new Set<string>();
       for (const item of envelope.records) {
-        if (!item || typeof item !== "object" || Array.isArray(item)) {
-          try {
-            localStorage.removeItem(this.key);
-          } catch {
-            /* ignore storage cleanup failures */
-          }
+        if (!isStoredRecord(item)) {
+          removeStored();
           return fallback.map(cloneRecord);
         }
-        records.push(cloneRecord(item as LifeRecord));
+        if (ids.has(item.id)) {
+          removeStored();
+          return fallback.map(cloneRecord);
+        }
+        ids.add(item.id);
+        records.push(cloneRecord(item));
       }
+
+      for (const record of records) {
+        if (record.dependsOn !== undefined && !ids.has(record.dependsOn)) {
+          removeStored();
+          return fallback.map(cloneRecord);
+        }
+        if (record.parentId !== undefined && !ids.has(record.parentId)) {
+          removeStored();
+          return fallback.map(cloneRecord);
+        }
+        if (record.dependsOn === record.id || record.parentId === record.id) {
+          removeStored();
+          return fallback.map(cloneRecord);
+        }
+      }
+
+      const parentTargets = new Map(records.map((record) => [record.id, record.parentId]));
+      const dependencyTargets = new Map(records.map((record) => [record.id, record.dependsOn]));
+      if (hasCycle(parentTargets) || hasCycle(dependencyTargets)) {
+        removeStored();
+        return fallback.map(cloneRecord);
+      }
+
       return records;
     } catch {
       try {
@@ -283,4 +323,70 @@ function cloneRecord(record: LifeRecord): LifeRecord {
     ...record,
     impactDimensions: record.impactDimensions ? { ...record.impactDimensions } : undefined,
   };
+}
+
+function isCalendarDay(value: unknown): value is string {
+  if (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const parsed = new Date(`${value}T00:00:00Z`);
+  return !Number.isNaN(parsed.getTime()) && parsed.toISOString().slice(0, 10) === value;
+}
+
+function isTimestamp(value: unknown): value is string {
+  if (typeof value !== "string" || value.length > 40 ||
+      !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?Z$/.test(value)) return false;
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return false;
+  const canonical = value.includes(".") ? value : value.replace(/Z$/, ".000Z");
+  return parsed.toISOString() === canonical;
+}
+
+function isStoredRecord(value: unknown): value is LifeRecord {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+  const raw = value as Record<string, unknown>;
+  if (typeof raw.id !== "string" || raw.id.length < 1 || raw.id.length > 120) return false;
+  if (typeof raw.title !== "string" || raw.title.trim().length < 1 || raw.title.length > 100) return false;
+  if (typeof raw.category !== "string" || raw.category.length < 1) return false;
+  if (!isCalendarDay(raw.dueDate)) return false;
+  if (typeof raw.effort !== "number" || !Number.isFinite(raw.effort) || raw.effort < 1 || raw.effort > 480) return false;
+  if (typeof raw.impact !== "number" || !Number.isInteger(raw.impact) || raw.impact < 1 || raw.impact > 5) return false;
+  if (typeof raw.status !== "string" || !VALID_STATUSES.includes(raw.status as ItemStatus)) return false;
+  if (typeof raw.notes !== "string" || raw.notes.length > 600) return false;
+  if (!isTimestamp(raw.createdAt) || !isTimestamp(raw.updatedAt)) return false;
+
+  if (raw.dependsOn !== undefined && raw.dependsOn !== null) {
+    if (typeof raw.dependsOn !== "string" || raw.dependsOn.length < 1 || raw.dependsOn.length > 120) return false;
+  }
+  if (raw.parentId !== undefined && raw.parentId !== null) {
+    if (typeof raw.parentId !== "string" || raw.parentId.length < 1 || raw.parentId.length > 120) return false;
+  }
+  if (raw.impactDimensions !== undefined) {
+    if (!raw.impactDimensions || typeof raw.impactDimensions !== "object" || Array.isArray(raw.impactDimensions)) return false;
+    for (const [key, value] of Object.entries(raw.impactDimensions)) {
+      if (key.length < 1 || key.length > 80) return false;
+      if (typeof value !== "number" || !Number.isFinite(value) || value < -1000 || value > 1000) return false;
+    }
+  }
+  if (raw.preferredEnergy !== undefined) {
+    if (typeof raw.preferredEnergy !== "string" || !ENERGY_LEVELS.includes(raw.preferredEnergy)) return false;
+  }
+  if (raw.preferredTime !== undefined) {
+    if (typeof raw.preferredTime !== "string" || !TIMES_OF_DAY.includes(raw.preferredTime)) return false;
+  }
+  if (raw.postponedCount !== undefined) {
+    if (typeof raw.postponedCount !== "number" || !Number.isInteger(raw.postponedCount) || raw.postponedCount < 0) return false;
+  }
+  return true;
+}
+
+function hasCycle(targets: Map<string, string | undefined>): boolean {
+  for (const start of targets.keys()) {
+    const seen = new Set<string>([start]);
+    let cursor = targets.get(start);
+    while (cursor) {
+      if (seen.has(cursor)) return true;
+      seen.add(cursor);
+      cursor = targets.get(cursor);
+    }
+  }
+  return false;
 }
