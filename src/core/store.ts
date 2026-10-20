@@ -31,6 +31,12 @@ export class RecordStore {
     if (next.parentId == null) next.parentId = undefined;
     if (next.dependsOn === next.id) next.dependsOn = undefined;
     if (next.parentId === next.id) next.parentId = undefined;
+    if (next.dependsOn !== undefined && !this.records.some((item) => item.id === next.dependsOn)) {
+      next.dependsOn = undefined;
+    }
+    if (next.parentId !== undefined && !this.records.some((item) => item.id === next.parentId)) {
+      next.parentId = undefined;
+    }
     if (next.dependsOn !== undefined && this.wouldCreateCycle(next.id, next.dependsOn, "dependsOn")) {
       next.dependsOn = undefined;
     }
@@ -192,8 +198,9 @@ export class RecordStore {
 
   replace(records: LifeRecord[]): void {
     if (!Array.isArray(records) || !records.every((record) => isStoredRecord(record))) return;
+    if (new Set(records.map((record) => record.id)).size !== records.length) return;
     this.undoStack = this.records.map((item) => cloneRecord(item));
-    this.records = records.map((item) => cloneRecord(item));
+    this.records = normalizeStoredRecords(records);
     this.commit();
   }
 
@@ -320,6 +327,45 @@ function cloneRecord(record: LifeRecord): LifeRecord {
     parentId: record.parentId == null ? undefined : record.parentId,
     impactDimensions: record.impactDimensions ? { ...record.impactDimensions } : undefined,
   };
+}
+
+function normalizeStoredRecords(records: LifeRecord[]): LifeRecord[] {
+  const ids = new Set(records.map((record) => record.id));
+  const cloned = records.map((record) => cloneRecord(record));
+  for (const record of cloned) {
+    if (record.dependsOn == null) record.dependsOn = undefined;
+    if (record.parentId == null) record.parentId = undefined;
+    if (record.dependsOn === record.id) record.dependsOn = undefined;
+    if (record.parentId === record.id) record.parentId = undefined;
+    if (record.dependsOn !== undefined && !ids.has(record.dependsOn)) record.dependsOn = undefined;
+    if (record.parentId !== undefined && !ids.has(record.parentId)) record.parentId = undefined;
+  }
+
+  const breakCycles = (field: "dependsOn" | "parentId"): void => {
+    let changed = true;
+    while (changed) {
+      changed = false;
+      for (const record of cloned) {
+        const target = record[field];
+        if (target === undefined) continue;
+        const seen = new Set<string>([record.id]);
+        let cursor: string | undefined = target;
+        let cyclic = false;
+        while (cursor) {
+          if (seen.has(cursor)) { cyclic = true; break; }
+          seen.add(cursor);
+          cursor = cloned.find((item) => item.id === cursor)?.[field];
+        }
+        if (cyclic) {
+          record[field] = undefined;
+          changed = true;
+        }
+      }
+    }
+  };
+  breakCycles("dependsOn");
+  breakCycles("parentId");
+  return cloned;
 }
 
 function isCalendarDay(value: unknown): value is string {

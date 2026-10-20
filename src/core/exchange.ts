@@ -191,6 +191,8 @@ export function download(name: string, contents: string, type: string): void {
   if (typeof document === "undefined") return;
   const url = URL.createObjectURL(new Blob([contents], { type }));
   const anchor = Object.assign(document.createElement("a"), { href: url, download: name });
+  document.body.appendChild(anchor);
   anchor.click();
+  document.body.removeChild(anchor);
   URL.revokeObjectURL(url);
 }
