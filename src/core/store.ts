@@ -317,10 +317,22 @@ export class RecordStore {
 
 function cloneRecord(record: LifeRecord): LifeRecord {
   return {
-    ...record,
+    id: record.id,
+    title: record.title,
+    category: record.category,
+    dueDate: record.dueDate,
+    effort: record.effort,
+    impact: record.impact,
+    status: record.status,
+    notes: record.notes,
+    createdAt: record.createdAt,
+    updatedAt: record.updatedAt,
     dependsOn: record.dependsOn == null ? undefined : record.dependsOn,
     parentId: record.parentId == null ? undefined : record.parentId,
     impactDimensions: record.impactDimensions ? { ...record.impactDimensions } : undefined,
+    preferredEnergy: record.preferredEnergy,
+    preferredTime: record.preferredTime,
+    postponedCount: record.postponedCount,
   };
 }
 

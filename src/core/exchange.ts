@@ -9,10 +9,22 @@ const TIMES_OF_DAY = ["morning", "afternoon", "evening"] as const;
 
 function cloneRecord(record: LifeRecord): LifeRecord {
   return {
-    ...record,
+    id: record.id,
+    title: record.title,
+    category: record.category,
+    dueDate: record.dueDate,
+    effort: record.effort,
+    impact: record.impact,
+    status: record.status,
+    notes: record.notes,
+    createdAt: record.createdAt,
+    updatedAt: record.updatedAt,
     dependsOn: record.dependsOn == null ? undefined : record.dependsOn,
     parentId: record.parentId == null ? undefined : record.parentId,
     impactDimensions: record.impactDimensions ? { ...record.impactDimensions } : undefined,
+    preferredEnergy: record.preferredEnergy,
+    preferredTime: record.preferredTime,
+    postponedCount: record.postponedCount,
   };
 }
 
@@ -144,12 +156,26 @@ export function downloadText(filename: string, content: string, mimeType = "text
   const anchor = document.createElement("a");
   anchor.href = url;
   anchor.download = filename;
-  document.body.appendChild(anchor);
+  let attached = false;
   try {
+    if (document.body) {
+      document.body.appendChild(anchor);
+      attached = true;
+    }
     anchor.click();
   } finally {
-    document.body.removeChild(anchor);
-    URL.revokeObjectURL(url);
+    if (attached && anchor.parentNode) {
+      try {
+        anchor.parentNode.removeChild(anchor);
+      } catch {
+        /* ignore cleanup failures */
+      }
+    }
+    try {
+      URL.revokeObjectURL(url);
+    } catch {
+      /* ignore cleanup failures */
+    }
   }
 }
 
