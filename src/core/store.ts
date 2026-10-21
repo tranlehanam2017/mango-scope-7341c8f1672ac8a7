@@ -205,20 +205,15 @@ export class RecordStore {
   }
 
   private wouldCreateCycle(id: string, targetId: string, relation: "dependsOn" | "parentId"): boolean {
-    const targets = new Map(this.records.map((item) => [
-      item.id,
-      relation === "dependsOn" ? item.dependsOn : item.parentId,
-    ]));
-    targets.set(id, targetId);
-
-    for (const start of targets.keys()) {
-      const seen = new Set<string>([start]);
-      let cursor = targets.get(start);
-      while (cursor) {
-        if (seen.has(cursor)) return true;
-        seen.add(cursor);
-        cursor = targets.get(cursor);
-      }
+    const field = relation === "dependsOn" ? "dependsOn" : "parentId";
+    const seen = new Set<string>();
+    let cursor: string | undefined = targetId;
+    while (cursor) {
+      if (cursor === id) return true;
+      if (seen.has(cursor)) return true;
+      seen.add(cursor);
+      const record = this.records.find((item) => item.id === cursor);
+      cursor = record ? record[field] : undefined;
     }
     return false;
   }
