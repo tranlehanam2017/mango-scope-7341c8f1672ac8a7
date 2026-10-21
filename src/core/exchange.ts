@@ -149,3 +149,5 @@ export function downloadText(filename: string, content: string, mimeType = "text
   document.body.removeChild(anchor);
   URL.revokeObjectURL(url);
 }
+
+export const download = downloadText;
