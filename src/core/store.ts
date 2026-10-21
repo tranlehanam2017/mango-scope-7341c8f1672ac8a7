@@ -6,6 +6,7 @@ type Listener = (records: readonly LifeRecord[]) => void;
 const VALID_STATUSES: readonly ItemStatus[] = ["planned", "active", "stale", "done", "archived"];
 const ENERGY_LEVELS = ["high", "medium", "low"];
 const TIMES_OF_DAY = ["morning", "afternoon", "evening"];
+const MAX_ID_LENGTH = 120;
 
 export class RecordStore {
   private readonly listeners = new Set<Listener>();
@@ -55,7 +56,7 @@ export class RecordStore {
   }
 
   transitionStatus(id: string, newStatus: ItemStatus): void {
-    if (typeof id !== "string" || id.length < 1 || !VALID_STATUSES.includes(newStatus)) return;
+    if (typeof id !== "string" || id.length < 1 || id.length > MAX_ID_LENGTH || !VALID_STATUSES.includes(newStatus)) return;
     const at = this.records.findIndex((item) => item.id === id);
     if (at === -1) return;
 
@@ -70,7 +71,7 @@ export class RecordStore {
 
   transitionStatuses(ids: string[], newStatus: ItemStatus): void {
     if (!Array.isArray(ids) || ids.length === 0 ||
-        !ids.every((id) => typeof id === "string" && id.length > 0) ||
+        !ids.every((id) => typeof id === "string" && id.length > 0 && id.length <= MAX_ID_LENGTH) ||
         !VALID_STATUSES.includes(newStatus)) return;
     const idSet = new Set(ids);
     const affected = this.records.filter((item) => idSet.has(item.id));
@@ -87,7 +88,7 @@ export class RecordStore {
   }
 
   postpone(id: string, newDueDate: string): void {
-    if (typeof id !== "string" || id.length < 1 || !isCalendarDay(newDueDate)) return;
+    if (typeof id !== "string" || id.length < 1 || id.length > MAX_ID_LENGTH || !isCalendarDay(newDueDate)) return;
     const at = this.records.findIndex((item) => item.id === id);
     if (at === -1) return;
 
@@ -102,7 +103,7 @@ export class RecordStore {
   }
 
   setDependency(id: string, dependsOnId: string | null): void {
-    if (typeof id !== "string" || id.length < 1) return;
+    if (typeof id !== "string" || id.length < 1 || id.length > MAX_ID_LENGTH) return;
     if (dependsOnId !== null && (typeof dependsOnId !== "string" || dependsOnId.length < 1 || dependsOnId.length > 120)) return;
 
     const at = this.records.findIndex((item) => item.id === id);
@@ -124,7 +125,7 @@ export class RecordStore {
   }
 
   setParent(id: string, parentId: string | null): void {
-    if (typeof id !== "string" || id.length < 1) return;
+    if (typeof id !== "string" || id.length < 1 || id.length > MAX_ID_LENGTH) return;
     if (parentId !== null && (typeof parentId !== "string" || parentId.length < 1 || parentId.length > 120)) return;
 
     const at = this.records.findIndex((item) => item.id === id);
@@ -147,7 +148,7 @@ export class RecordStore {
 
   removeMany(ids: string[]): void {
     if (!Array.isArray(ids) || ids.length === 0 ||
-        !ids.every((id) => typeof id === "string" && id.length > 0)) return;
+        !ids.every((id) => typeof id === "string" && id.length > 0 && id.length <= MAX_ID_LENGTH)) return;
     const idSet = new Set(ids);
     const originalLength = this.records.length;
     const snapshot = this.records.map((item) => cloneRecord(item));
@@ -182,7 +183,7 @@ export class RecordStore {
   }
 
   remove(id: string): void {
-    if (typeof id !== "string" || id.length < 1) return;
+    if (typeof id !== "string" || id.length < 1 || id.length > MAX_ID_LENGTH) return;
     this.removeMany([id]);
   }
 
