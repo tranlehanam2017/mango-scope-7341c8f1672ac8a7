@@ -211,7 +211,7 @@ export class RecordStore {
     let cursor: string | undefined = targetId;
     while (cursor) {
       if (cursor === id) return true;
-      if (seen.has(cursor)) return true;
+      if (seen.has(cursor)) return false;
       seen.add(cursor);
       const record = this.records.find((item) => item.id === cursor);
       cursor = record ? record[field] : undefined;
@@ -330,7 +330,7 @@ function cloneRecord(record: LifeRecord): LifeRecord {
     updatedAt: record.updatedAt,
     dependsOn: record.dependsOn == null ? undefined : record.dependsOn,
     parentId: record.parentId == null ? undefined : record.parentId,
-    impactDimensions: record.impactDimensions ? { ...record.impactDimensions } : undefined,
+    impactDimensions: record.impactDimensions == null ? undefined : { ...record.impactDimensions },
     preferredEnergy: record.preferredEnergy,
     preferredTime: record.preferredTime,
     postponedCount: record.postponedCount,
