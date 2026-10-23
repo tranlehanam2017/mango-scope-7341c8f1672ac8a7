@@ -82,6 +82,19 @@ function isImportedRecord(value: unknown, theme: ThemeConfig): value is LifeReco
   return true;
 }
 
+function hasCycle(targets: Map<string, string | undefined>): boolean {
+  for (const start of targets.keys()) {
+    const seen = new Set<string>([start]);
+    let cursor = targets.get(start);
+    while (cursor) {
+      if (seen.has(cursor)) return true;
+      seen.add(cursor);
+      cursor = targets.get(cursor);
+    }
+  }
+  return false;
+}
+
 export function importJson(raw: string, theme: ThemeConfig): LifeRecord[] {
   let parsed: unknown;
   try {
@@ -113,6 +126,35 @@ export function importJson(raw: string, theme: ThemeConfig): LifeRecord[] {
     ids.add(record.id);
     records.push(record);
   }
+
+  for (const record of records) {
+    if (record.dependsOn !== undefined) {
+      if (record.dependsOn === record.id) {
+        throw new Error("invalid record: self dependency");
+      }
+      if (!ids.has(record.dependsOn)) {
+        throw new Error("invalid record: dangling dependency");
+      }
+    }
+    if (record.parentId !== undefined) {
+      if (record.parentId === record.id) {
+        throw new Error("invalid record: self parent");
+      }
+      if (!ids.has(record.parentId)) {
+        throw new Error("invalid record: dangling parent");
+      }
+    }
+  }
+
+  const dependencyTargets = new Map(records.map((record) => [record.id, record.dependsOn]));
+  const parentTargets = new Map(records.map((record) => [record.id, record.parentId]));
+  if (hasCycle(dependencyTargets)) {
+    throw new Error("invalid record: cyclic dependency");
+  }
+  if (hasCycle(parentTargets)) {
+    throw new Error("invalid record: cyclic parent");
+  }
+
   return records;
 }
 
