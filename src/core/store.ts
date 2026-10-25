@@ -104,7 +104,7 @@ export class RecordStore {
 
   setDependency(id: string, dependsOnId: string | null): void {
     if (typeof id !== "string" || id.length < 1 || id.length > MAX_ID_LENGTH) return;
-    if (dependsOnId !== null && (typeof dependsOnId !== "string" || dependsOnId.length < 1 || dependsOnId.length > 120)) return;
+    if (dependsOnId !== null && (typeof dependsOnId !== "string" || dependsOnId.length < 1 || dependsOnId.length > MAX_ID_LENGTH)) return;
 
     const at = this.records.findIndex((item) => item.id === id);
     if (at === -1) return;
@@ -126,7 +126,7 @@ export class RecordStore {
 
   setParent(id: string, parentId: string | null): void {
     if (typeof id !== "string" || id.length < 1 || id.length > MAX_ID_LENGTH) return;
-    if (parentId !== null && (typeof parentId !== "string" || parentId.length < 1 || parentId.length > 120)) return;
+    if (parentId !== null && (typeof parentId !== "string" || parentId.length < 1 || parentId.length > MAX_ID_LENGTH)) return;
 
     const at = this.records.findIndex((item) => item.id === id);
     if (at === -1) return;
