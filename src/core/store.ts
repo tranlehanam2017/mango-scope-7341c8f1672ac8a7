@@ -73,7 +73,8 @@ export class RecordStore {
     if (!Array.isArray(ids) || ids.length === 0 ||
         !ids.every((id) => typeof id === "string" && id.length > 0 && id.length <= MAX_ID_LENGTH) ||
         !VALID_STATUSES.includes(newStatus)) return;
-    const idSet = new Set(ids);
+    const uniqueIds = [...new Set(ids)];
+    const idSet = new Set(uniqueIds);
     const affected = this.records.filter((item) => idSet.has(item.id));
     if (affected.length === 0) return;
 
