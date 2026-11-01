@@ -64,4 +64,17 @@ describe("RecordStore", () => {
     store.replace([rec(), rec()]);
     expect(store.all()).toHaveLength(1);
   });
+
+  it("rejects whitespace-only titles on upsert", () => {
+    const store = new RecordStore("store-test-7", []);
+    store.upsert(rec({ id: "blank", title: "   " }));
+    expect(store.all()).toHaveLength(0);
+  });
+
+  it("rejects whitespace-only titles on replace", () => {
+    const store = new RecordStore("store-test-8", [rec()]);
+    store.replace([rec({ id: "blank", title: "   " })]);
+    expect(store.all()).toHaveLength(1);
+    expect(store.all()[0]?.id).toBe("a");
+  });
 });

@@ -394,9 +394,9 @@ function isTimestamp(value: unknown): value is string {
 function isStoredRecord(value: unknown): value is LifeRecord {
   if (!value || typeof value !== "object" || Array.isArray(value)) return false;
   const raw = value as Record<string, unknown>;
-  if (typeof raw.id !== "string" || raw.id.length < 1 || raw.id.length > 120) return false;
+  if (typeof raw.id !== "string" || raw.id.length < 1 || raw.id.length > MAX_ID_LENGTH) return false;
   if (typeof raw.title !== "string" || raw.title.trim().length < 1 || raw.title.length > 100) return false;
-  if (typeof raw.category !== "string" || raw.category.length < 1) return false;
+  if (typeof raw.category !== "string" || raw.category.trim().length < 1) return false;
   if (!isCalendarDay(raw.dueDate)) return false;
   if (typeof raw.effort !== "number" || !Number.isFinite(raw.effort) || raw.effort < 1 || raw.effort > 480) return false;
   if (typeof raw.impact !== "number" || !Number.isInteger(raw.impact) || raw.impact < 1 || raw.impact > 5) return false;
@@ -405,10 +405,10 @@ function isStoredRecord(value: unknown): value is LifeRecord {
   if (!isTimestamp(raw.createdAt) || !isTimestamp(raw.updatedAt)) return false;
 
   if (raw.dependsOn !== undefined && raw.dependsOn !== null) {
-    if (typeof raw.dependsOn !== "string" || raw.dependsOn.length < 1 || raw.dependsOn.length > 120) return false;
+    if (typeof raw.dependsOn !== "string" || raw.dependsOn.length < 1 || raw.dependsOn.length > MAX_ID_LENGTH) return false;
   }
   if (raw.parentId !== undefined && raw.parentId !== null) {
-    if (typeof raw.parentId !== "string" || raw.parentId.length < 1 || raw.parentId.length > 120) return false;
+    if (typeof raw.parentId !== "string" || raw.parentId.length < 1 || raw.parentId.length > MAX_ID_LENGTH) return false;
   }
   if (raw.impactDimensions !== undefined) {
     if (!raw.impactDimensions || typeof raw.impactDimensions !== "object" || Array.isArray(raw.impactDimensions)) return false;
