@@ -49,7 +49,7 @@ function isImportedRecord(value: unknown, theme: ThemeConfig): value is LifeReco
   const raw = value as Record<string, unknown>;
   if (typeof raw.id !== "string" || raw.id.length < 1 || raw.id.length > MAX_ID_LENGTH) return false;
   if (typeof raw.title !== "string" || raw.title.trim().length < 1 || raw.title.length > 100) return false;
-  if (typeof raw.category !== "string" || !theme.categories.includes(raw.category)) return false;
+  if (typeof raw.category !== "string" || raw.category.trim().length < 1 || !theme.categories.includes(raw.category)) return false;
   if (!isCalendarDay(raw.dueDate)) return false;
   if (typeof raw.effort !== "number" || !Number.isFinite(raw.effort) || raw.effort < 1 || raw.effort > 480) return false;
   if (typeof raw.impact !== "number" || !Number.isInteger(raw.impact) || raw.impact < 1 || raw.impact > 5) return false;
