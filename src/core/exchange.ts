@@ -47,7 +47,7 @@ function isTimestamp(value: unknown): value is string {
 function isImportedRecord(value: unknown, theme: ThemeConfig): value is LifeRecord {
   if (!value || typeof value !== "object" || Array.isArray(value)) return false;
   const raw = value as Record<string, unknown>;
-  if (typeof raw.id !== "string" || raw.id.length < 1 || raw.id.length > MAX_ID_LENGTH) return false;
+  if (typeof raw.id !== "string" || raw.id.trim().length < 1 || raw.id.length > MAX_ID_LENGTH) return false;
   if (typeof raw.title !== "string" || raw.title.trim().length < 1 || raw.title.length > 100) return false;
   if (typeof raw.category !== "string" || raw.category.trim().length < 1 || !theme.categories.includes(raw.category)) return false;
   if (!isCalendarDay(raw.dueDate)) return false;
@@ -58,16 +58,16 @@ function isImportedRecord(value: unknown, theme: ThemeConfig): value is LifeReco
   if (!isTimestamp(raw.createdAt) || !isTimestamp(raw.updatedAt)) return false;
 
   if (raw.dependsOn !== undefined && raw.dependsOn !== null) {
-    if (typeof raw.dependsOn !== "string" || raw.dependsOn.length < 1 || raw.dependsOn.length > MAX_ID_LENGTH) return false;
+    if (typeof raw.dependsOn !== "string" || raw.dependsOn.trim().length < 1 || raw.dependsOn.length > MAX_ID_LENGTH) return false;
   }
   if (raw.parentId !== undefined && raw.parentId !== null) {
-    if (typeof raw.parentId !== "string" || raw.parentId.length < 1 || raw.parentId.length > MAX_ID_LENGTH) return false;
+    if (typeof raw.parentId !== "string" || raw.parentId.trim().length < 1 || raw.parentId.length > MAX_ID_LENGTH) return false;
   }
   if (raw.impactDimensions !== undefined) {
     if (!raw.impactDimensions || typeof raw.impactDimensions !== "object" || Array.isArray(raw.impactDimensions)) return false;
     if (Object.keys(raw.impactDimensions).length > 50) return false;
     for (const [key, val] of Object.entries(raw.impactDimensions as Record<string, unknown>)) {
-      if (key.length < 1 || key.length > 80) return false;
+      if (key.trim().length < 1 || key.length > 80) return false;
       if (typeof val !== "number" || !Number.isFinite(val) || val < -1000 || val > 1000) return false;
     }
   }

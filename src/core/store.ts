@@ -13,7 +13,7 @@ export class RecordStore {
   private records: LifeRecord[];
   private undoStack: LifeRecord[] | null = null;
 
-  constructor(private readonly key: string, initial: LifeRecord[]) {
+  constructor(private readonly key: string, initial: readonly LifeRecord[]) {
     this.records = this.read(initial);
   }
 
@@ -56,7 +56,7 @@ export class RecordStore {
   }
 
   transitionStatus(id: string, newStatus: ItemStatus): void {
-    if (typeof id !== "string" || id.length < 1 || id.length > MAX_ID_LENGTH || !VALID_STATUSES.includes(newStatus)) return;
+    if (typeof id !== "string" || id.trim().length < 1 || id.length > MAX_ID_LENGTH || !VALID_STATUSES.includes(newStatus)) return;
     const at = this.records.findIndex((item) => item.id === id);
     if (at === -1) return;
 
@@ -69,9 +69,9 @@ export class RecordStore {
     this.commit();
   }
 
-  transitionStatuses(ids: string[], newStatus: ItemStatus): void {
+  transitionStatuses(ids: readonly string[], newStatus: ItemStatus): void {
     if (!Array.isArray(ids) || ids.length === 0 ||
-        !ids.every((id) => typeof id === "string" && id.length > 0 && id.length <= MAX_ID_LENGTH) ||
+        !ids.every((id) => typeof id === "string" && id.trim().length > 0 && id.length <= MAX_ID_LENGTH) ||
         !VALID_STATUSES.includes(newStatus)) return;
     const uniqueIds = [...new Set(ids)];
     const idSet = new Set(uniqueIds);
@@ -89,7 +89,7 @@ export class RecordStore {
   }
 
   postpone(id: string, newDueDate: string): void {
-    if (typeof id !== "string" || id.length < 1 || id.length > MAX_ID_LENGTH || !isCalendarDay(newDueDate)) return;
+    if (typeof id !== "string" || id.trim().length < 1 || id.length > MAX_ID_LENGTH || !isCalendarDay(newDueDate)) return;
     const at = this.records.findIndex((item) => item.id === id);
     if (at === -1) return;
 
@@ -104,8 +104,8 @@ export class RecordStore {
   }
 
   setDependency(id: string, dependsOnId: string | null): void {
-    if (typeof id !== "string" || id.length < 1 || id.length > MAX_ID_LENGTH) return;
-    if (dependsOnId !== null && (typeof dependsOnId !== "string" || dependsOnId.length < 1 || dependsOnId.length > MAX_ID_LENGTH)) return;
+    if (typeof id !== "string" || id.trim().length < 1 || id.length > MAX_ID_LENGTH) return;
+    if (dependsOnId !== null && (typeof dependsOnId !== "string" || dependsOnId.trim().length < 1 || dependsOnId.length > MAX_ID_LENGTH)) return;
 
     const at = this.records.findIndex((item) => item.id === id);
     if (at === -1) return;
@@ -126,8 +126,8 @@ export class RecordStore {
   }
 
   setParent(id: string, parentId: string | null): void {
-    if (typeof id !== "string" || id.length < 1 || id.length > MAX_ID_LENGTH) return;
-    if (parentId !== null && (typeof parentId !== "string" || parentId.length < 1 || parentId.length > MAX_ID_LENGTH)) return;
+    if (typeof id !== "string" || id.trim().length < 1 || id.length > MAX_ID_LENGTH) return;
+    if (parentId !== null && (typeof parentId !== "string" || parentId.trim().length < 1 || parentId.length > MAX_ID_LENGTH)) return;
 
     const at = this.records.findIndex((item) => item.id === id);
     if (at === -1) return;
@@ -147,9 +147,9 @@ export class RecordStore {
     this.commit();
   }
 
-  removeMany(ids: string[]): void {
+  removeMany(ids: readonly string[]): void {
     if (!Array.isArray(ids) || ids.length === 0 ||
-        !ids.every((id) => typeof id === "string" && id.length > 0 && id.length <= MAX_ID_LENGTH)) return;
+        !ids.every((id) => typeof id === "string" && id.trim().length > 0 && id.length <= MAX_ID_LENGTH)) return;
     const idSet = new Set(ids);
     const originalLength = this.records.length;
     const snapshot = this.records.map((item) => cloneRecord(item));
@@ -184,7 +184,7 @@ export class RecordStore {
   }
 
   remove(id: string): void {
-    if (typeof id !== "string" || id.length < 1 || id.length > MAX_ID_LENGTH) return;
+    if (typeof id !== "string" || id.trim().length < 1 || id.length > MAX_ID_LENGTH) return;
     this.removeMany([id]);
   }
 
@@ -198,11 +198,11 @@ export class RecordStore {
     this.commit();
   }
 
-  replace(records: LifeRecord[]): void {
+  replace(records: readonly LifeRecord[]): void {
     if (!Array.isArray(records) || !records.every((record) => isStoredRecord(record))) return;
     if (new Set(records.map((record) => record.id)).size !== records.length) return;
     this.undoStack = this.records.map((item) => cloneRecord(item));
-    this.records = normalizeStoredRecords(records);
+    this.records = normalizeStoredRecords(records as LifeRecord[]);
     this.commit();
   }
 
@@ -220,7 +220,7 @@ export class RecordStore {
     return false;
   }
 
-  private read(fallback: LifeRecord[]): LifeRecord[] {
+  private read(fallback: readonly LifeRecord[]): LifeRecord[] {
     const removeStored = () => {
       try {
         if (typeof localStorage !== "undefined") localStorage.removeItem(this.key);
@@ -338,7 +338,7 @@ function cloneRecord(record: LifeRecord): LifeRecord {
   };
 }
 
-function normalizeStoredRecords(records: LifeRecord[]): LifeRecord[] {
+function normalizeStoredRecords(records: readonly LifeRecord[]): LifeRecord[] {
   const ids = new Set(records.map((record) => record.id));
   const cloned = records.map((record) => cloneRecord(record));
   for (const record of cloned) {
@@ -395,7 +395,7 @@ function isTimestamp(value: unknown): value is string {
 function isStoredRecord(value: unknown): value is LifeRecord {
   if (!value || typeof value !== "object" || Array.isArray(value)) return false;
   const raw = value as Record<string, unknown>;
-  if (typeof raw.id !== "string" || raw.id.length < 1 || raw.id.length > MAX_ID_LENGTH) return false;
+  if (typeof raw.id !== "string" || raw.id.trim().length < 1 || raw.id.length > MAX_ID_LENGTH) return false;
   if (typeof raw.title !== "string" || raw.title.trim().length < 1 || raw.title.length > 100) return false;
   if (typeof raw.category !== "string" || raw.category.trim().length < 1) return false;
   if (!isCalendarDay(raw.dueDate)) return false;
@@ -406,16 +406,16 @@ function isStoredRecord(value: unknown): value is LifeRecord {
   if (!isTimestamp(raw.createdAt) || !isTimestamp(raw.updatedAt)) return false;
 
   if (raw.dependsOn !== undefined && raw.dependsOn !== null) {
-    if (typeof raw.dependsOn !== "string" || raw.dependsOn.length < 1 || raw.dependsOn.length > MAX_ID_LENGTH) return false;
+    if (typeof raw.dependsOn !== "string" || raw.dependsOn.trim().length < 1 || raw.dependsOn.length > MAX_ID_LENGTH) return false;
   }
   if (raw.parentId !== undefined && raw.parentId !== null) {
-    if (typeof raw.parentId !== "string" || raw.parentId.length < 1 || raw.parentId.length > MAX_ID_LENGTH) return false;
+    if (typeof raw.parentId !== "string" || raw.parentId.trim().length < 1 || raw.parentId.length > MAX_ID_LENGTH) return false;
   }
   if (raw.impactDimensions !== undefined) {
     if (!raw.impactDimensions || typeof raw.impactDimensions !== "object" || Array.isArray(raw.impactDimensions)) return false;
     if (Object.keys(raw.impactDimensions).length > 50) return false;
     for (const [key, value] of Object.entries(raw.impactDimensions)) {
-      if (key.length < 1 || key.length > 80) return false;
+      if (key.trim().length < 1 || key.length > 80) return false;
       if (typeof value !== "number" || !Number.isFinite(value) || value < -1000 || value > 1000) return false;
     }
   }
