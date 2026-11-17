@@ -177,12 +177,17 @@ function csvEscape(value: string): string {
 export function exportCsv(records: readonly LifeRecord[]): string {
   const headers = [
     "id", "title", "category", "dueDate", "effort", "impact", "status", "notes",
-    "createdAt", "updatedAt", "dependsOn", "parentId", "preferredEnergy",
+    "impactDimensions", "createdAt", "updatedAt", "dependsOn", "parentId", "preferredEnergy",
     "preferredTime", "postponedCount",
   ];
   const rows = records.map((record) =>
     headers
-      .map((header) => csvEscape(String((record as Record<string, unknown>)[header] ?? "")))
+      .map((header) => {
+        if (header === "impactDimensions") {
+          return csvEscape(record.impactDimensions ? JSON.stringify(record.impactDimensions) : "");
+        }
+        return csvEscape(String((record as Record<string, unknown>)[header] ?? ""));
+      })
       .join(","),
   );
   return [headers.join(","), ...rows].join("\n");
