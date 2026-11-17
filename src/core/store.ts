@@ -19,6 +19,17 @@ export class RecordStore {
 
   all(): readonly LifeRecord[] { return this.records.map((item) => cloneRecord(item)); }
 
+  get(id: string): LifeRecord | undefined {
+    if (typeof id !== "string" || id.trim().length < 1 || id.length > MAX_ID_LENGTH) return undefined;
+    const found = this.records.find((item) => item.id === id);
+    return found ? cloneRecord(found) : undefined;
+  }
+
+  has(id: string): boolean {
+    if (typeof id !== "string" || id.trim().length < 1 || id.length > MAX_ID_LENGTH) return false;
+    return this.records.some((item) => item.id === id);
+  }
+
   subscribe(listener: Listener): () => void {
     this.listeners.add(listener);
     listener(this.all());
