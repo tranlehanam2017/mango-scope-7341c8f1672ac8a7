@@ -77,4 +77,18 @@ describe("RecordStore", () => {
     expect(store.all()).toHaveLength(1);
     expect(store.all()[0]?.id).toBe("a");
   });
+
+  it("gets a record by id", () => {
+    const store = new RecordStore("store-test-get", [rec()]);
+    expect(store.get("a")?.title).toBe("A");
+    expect(store.get("missing")).toBeUndefined();
+    expect(store.get("   ")).toBeUndefined();
+  });
+
+  it("reports whether a record exists", () => {
+    const store = new RecordStore("store-test-has", [rec()]);
+    expect(store.has("a")).toBe(true);
+    expect(store.has("missing")).toBe(false);
+    expect(store.has("   ")).toBe(false);
+  });
 });
