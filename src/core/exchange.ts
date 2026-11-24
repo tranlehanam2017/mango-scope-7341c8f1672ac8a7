@@ -180,16 +180,17 @@ export function exportCsv(records: readonly LifeRecord[]): string {
     "impactDimensions", "createdAt", "updatedAt", "dependsOn", "parentId", "preferredEnergy",
     "preferredTime", "postponedCount",
   ];
-  const rows = records.map((record) =>
-    headers
+  const rows = records.map((record) => {
+    const normalized = cloneRecord(record);
+    return headers
       .map((header) => {
         if (header === "impactDimensions") {
-          return csvEscape(record.impactDimensions ? JSON.stringify(record.impactDimensions) : "");
+          return csvEscape(normalized.impactDimensions ? JSON.stringify(normalized.impactDimensions) : "");
         }
-        return csvEscape(String((record as Record<string, unknown>)[header] ?? ""));
+        return csvEscape(String((normalized as Record<string, unknown>)[header] ?? ""));
       })
-      .join(","),
-  );
+      .join(",");
+  });
   return [headers.join(","), ...rows].join("\n");
 }
 
