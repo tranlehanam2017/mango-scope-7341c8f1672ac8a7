@@ -23,9 +23,9 @@ function cloneRecord(record: LifeRecord): LifeRecord {
     dependsOn: record.dependsOn == null ? undefined : record.dependsOn,
     parentId: record.parentId == null ? undefined : record.parentId,
     impactDimensions: record.impactDimensions == null ? undefined : { ...record.impactDimensions },
-    preferredEnergy: record.preferredEnergy,
-    preferredTime: record.preferredTime,
-    postponedCount: record.postponedCount,
+    preferredEnergy: record.preferredEnergy == null ? undefined : record.preferredEnergy,
+    preferredTime: record.preferredTime == null ? undefined : record.preferredTime,
+    postponedCount: record.postponedCount == null ? undefined : record.postponedCount,
   };
 }
 
@@ -71,13 +71,13 @@ function isImportedRecord(value: unknown, theme: ThemeConfig): value is LifeReco
       if (typeof val !== "number" || !Number.isFinite(val) || val < -1000 || val > 1000) return false;
     }
   }
-  if (raw.preferredEnergy !== undefined) {
+  if (raw.preferredEnergy !== undefined && raw.preferredEnergy !== null) {
     if (typeof raw.preferredEnergy !== "string" || !ENERGY_LEVELS.includes(raw.preferredEnergy as (typeof ENERGY_LEVELS)[number])) return false;
   }
-  if (raw.preferredTime !== undefined) {
+  if (raw.preferredTime !== undefined && raw.preferredTime !== null) {
     if (typeof raw.preferredTime !== "string" || !TIMES_OF_DAY.includes(raw.preferredTime as (typeof TIMES_OF_DAY)[number])) return false;
   }
-  if (raw.postponedCount !== undefined) {
+  if (raw.postponedCount !== undefined && raw.postponedCount !== null) {
     if (typeof raw.postponedCount !== "number" || !Number.isInteger(raw.postponedCount) || raw.postponedCount < 0) return false;
   }
   return true;

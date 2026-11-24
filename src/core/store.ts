@@ -41,6 +41,10 @@ export class RecordStore {
     const next = cloneRecord(record);
     if (next.dependsOn == null) next.dependsOn = undefined;
     if (next.parentId == null) next.parentId = undefined;
+    if (next.impactDimensions == null) next.impactDimensions = undefined;
+    if (next.preferredEnergy == null) next.preferredEnergy = undefined;
+    if (next.preferredTime == null) next.preferredTime = undefined;
+    if (next.postponedCount == null) next.postponedCount = undefined;
     if (next.dependsOn === next.id) next.dependsOn = undefined;
     if (next.parentId === next.id) next.parentId = undefined;
     if (next.dependsOn !== undefined && !this.records.some((item) => item.id === next.dependsOn)) {
@@ -343,9 +347,9 @@ function cloneRecord(record: LifeRecord): LifeRecord {
     dependsOn: record.dependsOn == null ? undefined : record.dependsOn,
     parentId: record.parentId == null ? undefined : record.parentId,
     impactDimensions: record.impactDimensions == null ? undefined : { ...record.impactDimensions },
-    preferredEnergy: record.preferredEnergy,
-    preferredTime: record.preferredTime,
-    postponedCount: record.postponedCount,
+    preferredEnergy: record.preferredEnergy == null ? undefined : record.preferredEnergy,
+    preferredTime: record.preferredTime == null ? undefined : record.preferredTime,
+    postponedCount: record.postponedCount == null ? undefined : record.postponedCount,
   };
 }
 
@@ -355,6 +359,10 @@ function normalizeStoredRecords(records: readonly LifeRecord[]): LifeRecord[] {
   for (const record of cloned) {
     if (record.dependsOn == null) record.dependsOn = undefined;
     if (record.parentId == null) record.parentId = undefined;
+    if (record.impactDimensions == null) record.impactDimensions = undefined;
+    if (record.preferredEnergy == null) record.preferredEnergy = undefined;
+    if (record.preferredTime == null) record.preferredTime = undefined;
+    if (record.postponedCount == null) record.postponedCount = undefined;
     if (record.dependsOn === record.id) record.dependsOn = undefined;
     if (record.parentId === record.id) record.parentId = undefined;
     if (record.dependsOn !== undefined && !ids.has(record.dependsOn)) record.dependsOn = undefined;
@@ -430,13 +438,13 @@ function isStoredRecord(value: unknown): value is LifeRecord {
       if (typeof value !== "number" || !Number.isFinite(value) || value < -1000 || value > 1000) return false;
     }
   }
-  if (raw.preferredEnergy !== undefined) {
+  if (raw.preferredEnergy !== undefined && raw.preferredEnergy !== null) {
     if (typeof raw.preferredEnergy !== "string" || !ENERGY_LEVELS.includes(raw.preferredEnergy)) return false;
   }
-  if (raw.preferredTime !== undefined) {
+  if (raw.preferredTime !== undefined && raw.preferredTime !== null) {
     if (typeof raw.preferredTime !== "string" || !TIMES_OF_DAY.includes(raw.preferredTime)) return false;
   }
-  if (raw.postponedCount !== undefined) {
+  if (raw.postponedCount !== undefined && raw.postponedCount !== null) {
     if (typeof raw.postponedCount !== "number" || !Number.isInteger(raw.postponedCount) || raw.postponedCount < 0) return false;
   }
   return true;
