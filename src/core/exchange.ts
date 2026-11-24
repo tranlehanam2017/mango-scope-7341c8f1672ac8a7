@@ -63,7 +63,7 @@ function isImportedRecord(value: unknown, theme: ThemeConfig): value is LifeReco
   if (raw.parentId !== undefined && raw.parentId !== null) {
     if (typeof raw.parentId !== "string" || raw.parentId.trim().length < 1 || raw.parentId.length > MAX_ID_LENGTH) return false;
   }
-  if (raw.impactDimensions !== undefined) {
+  if (raw.impactDimensions !== undefined && raw.impactDimensions !== null) {
     if (!raw.impactDimensions || typeof raw.impactDimensions !== "object" || Array.isArray(raw.impactDimensions)) return false;
     if (Object.keys(raw.impactDimensions).length > 50) return false;
     for (const [key, val] of Object.entries(raw.impactDimensions as Record<string, unknown>)) {
