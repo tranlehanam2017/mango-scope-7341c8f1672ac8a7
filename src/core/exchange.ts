@@ -1,5 +1,6 @@
 import type { LifeRecord } from "../types";
 import type { ThemeConfig } from "../types";
+import { cloneRecord, isCalendarDay, isTimestamp, hasCycle } from "./records";
 
 export { revisionLedger, type RevisionLedger } from "../generated/revision-ledger";
 
@@ -7,42 +8,6 @@ const MAX_ID_LENGTH = 120;
 const VALID_STATUSES = ["planned", "active", "stale", "done", "archived"] as const;
 const ENERGY_LEVELS = ["high", "medium", "low"] as const;
 const TIMES_OF_DAY = ["morning", "afternoon", "evening"] as const;
-
-function cloneRecord(record: LifeRecord): LifeRecord {
-  return {
-    id: record.id,
-    title: record.title,
-    category: record.category,
-    dueDate: record.dueDate,
-    effort: record.effort,
-    impact: record.impact,
-    status: record.status,
-    notes: record.notes,
-    createdAt: record.createdAt,
-    updatedAt: record.updatedAt,
-    dependsOn: record.dependsOn == null ? undefined : record.dependsOn,
-    parentId: record.parentId == null ? undefined : record.parentId,
-    impactDimensions: record.impactDimensions == null ? undefined : { ...record.impactDimensions },
-    preferredEnergy: record.preferredEnergy == null ? undefined : record.preferredEnergy,
-    preferredTime: record.preferredTime == null ? undefined : record.preferredTime,
-    postponedCount: record.postponedCount == null ? undefined : record.postponedCount,
-  };
-}
-
-function isCalendarDay(value: unknown): value is string {
-  if (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
-  const parsed = new Date(`${value}T00:00:00Z`);
-  return !Number.isNaN(parsed.getTime()) && parsed.toISOString().slice(0, 10) === value;
-}
-
-function isTimestamp(value: unknown): value is string {
-  if (typeof value !== "string" || value.length > 40 ||
-      !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?Z$/.test(value)) return false;
-  const parsed = new Date(value);
-  if (Number.isNaN(parsed.getTime())) return false;
-  const canonical = value.includes(".") ? value : value.replace(/Z$/, ".000Z");
-  return parsed.toISOString() === canonical;
-}
 
 function isImportedRecord(value: unknown, theme: ThemeConfig): value is LifeRecord {
   if (!value || typeof value !== "object" || Array.isArray(value)) return false;
@@ -81,19 +46,6 @@ function isImportedRecord(value: unknown, theme: ThemeConfig): value is LifeReco
     if (typeof raw.postponedCount !== "number" || !Number.isInteger(raw.postponedCount) || raw.postponedCount < 0) return false;
   }
   return true;
-}
-
-function hasCycle(targets: Map<string, string | undefined>): boolean {
-  for (const start of targets.keys()) {
-    const seen = new Set<string>([start]);
-    let cursor = targets.get(start);
-    while (cursor) {
-      if (seen.has(cursor)) return true;
-      seen.add(cursor);
-      cursor = targets.get(cursor);
-    }
-  }
-  return false;
 }
 
 export function importJson(raw: string, theme: ThemeConfig): LifeRecord[] {
@@ -229,3 +181,5 @@ export function downloadText(filename: string, content: string, mimeType = "text
 }
 
 export const download = downloadText;
+
+export { cloneRecord } from "./records";
