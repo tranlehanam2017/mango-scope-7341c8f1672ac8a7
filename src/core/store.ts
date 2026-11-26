@@ -246,27 +246,27 @@ export class RecordStore {
     };
 
     try {
-      if (typeof localStorage === "undefined") return fallback.map(cloneRecord);
+      if (typeof localStorage === "undefined") return normalizeStoredRecords(fallback);
       const raw = localStorage.getItem(this.key);
-      if (raw === null) return fallback.map(cloneRecord);
+      if (raw === null) return normalizeStoredRecords(fallback);
 
       let parsed: unknown;
       try {
         parsed = JSON.parse(raw);
       } catch {
         removeStored();
-        return fallback.map(cloneRecord);
+        return normalizeStoredRecords(fallback);
       }
 
       if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
         removeStored();
-        return fallback.map(cloneRecord);
+        return normalizeStoredRecords(fallback);
       }
 
       const envelope = parsed as { version?: unknown; records?: unknown };
       if (envelope.version !== 1 || !Array.isArray(envelope.records)) {
         removeStored();
-        return fallback.map(cloneRecord);
+        return normalizeStoredRecords(fallback);
       }
 
       const records: LifeRecord[] = [];
@@ -274,12 +274,12 @@ export class RecordStore {
       for (const item of envelope.records) {
         if (!isStoredRecord(item)) {
           removeStored();
-          return fallback.map(cloneRecord);
+          return normalizeStoredRecords(fallback);
         }
         const record = cloneRecord(item as LifeRecord);
         if (ids.has(record.id)) {
           removeStored();
-          return fallback.map(cloneRecord);
+          return normalizeStoredRecords(fallback);
         }
         ids.add(record.id);
         records.push(record);
@@ -288,15 +288,15 @@ export class RecordStore {
       for (const record of records) {
         if (record.dependsOn !== undefined && !ids.has(record.dependsOn)) {
           removeStored();
-          return fallback.map(cloneRecord);
+          return normalizeStoredRecords(fallback);
         }
         if (record.parentId !== undefined && !ids.has(record.parentId)) {
           removeStored();
-          return fallback.map(cloneRecord);
+          return normalizeStoredRecords(fallback);
         }
         if (record.dependsOn === record.id || record.parentId === record.id) {
           removeStored();
-          return fallback.map(cloneRecord);
+          return normalizeStoredRecords(fallback);
         }
       }
 
@@ -304,7 +304,7 @@ export class RecordStore {
       const dependencyTargets = new Map(records.map((record) => [record.id, record.dependsOn]));
       if (hasCycle(parentTargets) || hasCycle(dependencyTargets)) {
         removeStored();
-        return fallback.map(cloneRecord);
+        return normalizeStoredRecords(fallback);
       }
 
       return records;
@@ -315,7 +315,7 @@ export class RecordStore {
         /* ignore storage cleanup failures */
       }
     }
-    return fallback.map(cloneRecord);
+    return normalizeStoredRecords(fallback);
   }
 
   private commit(): void {
@@ -333,7 +333,7 @@ export class RecordStore {
   }
 }
 
-function normalizeStoredRecords(records: readonly LifeRecord[]): LifeRecord[] {
+export function normalizeStoredRecords(records: readonly LifeRecord[]): LifeRecord[] {
   const ids = new Set(records.map((record) => record.id));
   const cloned = records.map((record) => cloneRecord(record));
   for (const record of cloned) {
@@ -376,7 +376,7 @@ function normalizeStoredRecords(records: readonly LifeRecord[]): LifeRecord[] {
   return cloned;
 }
 
-function isStoredRecord(value: unknown): value is LifeRecord {
+export function isStoredRecord(value: unknown): value is LifeRecord {
   if (!value || typeof value !== "object" || Array.isArray(value)) return false;
   const raw = value as Record<string, unknown>;
   if (typeof raw.id !== "string" || raw.id.trim().length < 1 || raw.id.length > MAX_ID_LENGTH) return false;
