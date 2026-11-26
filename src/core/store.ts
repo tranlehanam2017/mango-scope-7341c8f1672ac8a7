@@ -334,8 +334,14 @@ export class RecordStore {
 }
 
 export function normalizeStoredRecords(records: readonly LifeRecord[]): LifeRecord[] {
-  const ids = new Set(records.map((record) => record.id));
-  const cloned = records.map((record) => cloneRecord(record));
+  const ids = new Set<string>();
+  const cloned: LifeRecord[] = [];
+  for (const record of records) {
+    if (ids.has(record.id)) continue;
+    ids.add(record.id);
+    cloned.push(cloneRecord(record));
+  }
+
   for (const record of cloned) {
     if (record.dependsOn == null) record.dependsOn = undefined;
     if (record.parentId == null) record.parentId = undefined;
