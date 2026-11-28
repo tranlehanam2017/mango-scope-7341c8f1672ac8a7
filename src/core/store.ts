@@ -99,7 +99,7 @@ export class RecordStore {
     this.records = this.records.map((item) => (
       idSet.has(item.id)
         ? { ...cloneRecord(item), status: newStatus, updatedAt: now }
-        : item
+        : cloneRecord(item)
     ));
     this.commit();
   }

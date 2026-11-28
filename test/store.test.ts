@@ -91,4 +91,16 @@ describe("RecordStore", () => {
     expect(store.has("missing")).toBe(false);
     expect(store.has("   ")).toBe(false);
   });
+
+  it("transitions multiple records and leaves others unchanged", () => {
+    const store = new RecordStore("store-test-transition-many", [
+      rec({ id: "a" }),
+      rec({ id: "b" }),
+      rec({ id: "c" }),
+    ]);
+    store.transitionStatuses(["a", "b", "missing"], "done");
+    expect(store.get("a")?.status).toBe("done");
+    expect(store.get("b")?.status).toBe("done");
+    expect(store.get("c")?.status).toBe("planned");
+  });
 });
